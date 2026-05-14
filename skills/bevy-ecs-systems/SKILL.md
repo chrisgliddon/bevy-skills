@@ -69,11 +69,14 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
+struct LevelEntity;
+
 fn spawn_level(mut commands: Commands) {
-    commands.spawn(Name::new("level"));
+    commands.spawn((LevelEntity, Name::new("level")));
 }
 
-fn despawn_level(mut commands: Commands, query: Query<Entity, With<Name>>) {
+fn despawn_level(mut commands: Commands, query: Query<Entity, With<LevelEntity>>) {
     for e in &query { commands.entity(e).despawn(); }
 }
 
@@ -114,14 +117,14 @@ Combine with `.and()` / `.or()`: `run_if(in_state(GameState::Playing).and(resour
 | Every built-in condition, `.and()`/`.or()`/`not()`, custom conditions, cost rule | [references/run-conditions.md](references/run-conditions.md) |
 | `OnEnter(S)` / `OnExit(S)` / `OnTransition`, `NextState<S>`, `set_if_neq` | [references/state-schedules.md](references/state-schedules.md) |
 | `.before`, `.after`, `.chain()`, `.ambiguous_with`, debugging ambiguity errors | [references/ordering.md](references/ordering.md) |
-| `remove_systems_in_set`, `ScheduleCleanupPolicy`, the 3-arg signature, side-effect limits | [references/runtime-removal.md](references/runtime-removal.md) |
+| `remove_systems_in_set`, `ScheduleCleanupPolicy`, 3-arg vs 4-arg receivers, side-effect limits | [references/runtime-removal.md](references/runtime-removal.md) |
 
 ## Gotchas (0.18)
 
 - **`SimpleExecutor` is gone.** Any ambiguity between systems sharing data is now a build-time error. Fix with `.before`, `.after`, `.chain()`, or `.ambiguous_with(other)` (explicit accept). See [references/ordering.md](references/ordering.md).
 - **`MessageReader` / `MessageWriter`, not `EventReader` / `EventWriter`.** Renamed in 0.17. Trait derive is `#[derive(Message)]`; registrar is `app.add_message::<M>()`.
 - **`next_state.set(S)` always fires `OnExit`/`OnEnter` in 0.18.** Use `set_if_neq` for the old behaviour. See [references/state-schedules.md](references/state-schedules.md).
-- **`remove_systems_in_set` takes 3 args in 0.18** (added `world` and `ScheduleCleanupPolicy`). See [references/runtime-removal.md](references/runtime-removal.md).
+- **`Schedules::remove_systems_in_set` takes 4 args in 0.18** (`schedule_label`, `set`, `world`, `ScheduleCleanupPolicy`); `Schedule::remove_systems_in_set` takes 3. See [references/runtime-removal.md](references/runtime-removal.md).
 
 ## See also
 

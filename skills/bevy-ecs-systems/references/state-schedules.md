@@ -45,11 +45,15 @@ fn main() {
         .run();
 }
 
+/// Marker component so despawn_level only touches entities this system spawned.
+#[derive(Component)]
+struct LevelEntity;
+
 fn spawn_level(mut commands: Commands) {
-    commands.spawn((Name::new("level"), /* ... */));
+    commands.spawn((LevelEntity, Name::new("level"), /* ... */));
 }
 
-fn despawn_level(mut commands: Commands, query: Query<Entity, With<Name>>) {
+fn despawn_level(mut commands: Commands, query: Query<Entity, With<LevelEntity>>) {
     for entity in &query {
         commands.entity(entity).despawn();
     }

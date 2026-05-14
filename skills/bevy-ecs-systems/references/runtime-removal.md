@@ -8,20 +8,29 @@ specific schedule, live at runtime. Useful for:
 - Hot-unloading mod systems.
 - Removing a tutorial HUD after first completion.
 
-### Signature (3-arg form in 0.18)
+### Signature — two receivers, different arg counts
+
+There are **two** methods named `remove_systems_in_set` in 0.18:
+
+| Receiver | Args (excluding `&mut self`) | Use when |
+|----------|------------------------------|----------|
+| `Schedules` (the Resource) | `schedule_label, set, world, policy` — **4 args** | You have the `Schedules` resource and target a schedule by label (the common case from `resource_scope`). |
+| `Schedule` (a single schedule) | `set, world, policy` — **3 args** | You already hold a `&mut Schedule` directly. |
+
+The `Schedules`-receiver (4-arg) form is what you use inside `resource_scope`:
 
 ```rust
 schedules.remove_systems_in_set(
-    schedule_label,   // e.g. Update
-    set,              // impl SystemSet
-    world,            // &mut World (for cleanup callbacks)
-    policy,           // ScheduleCleanupPolicy
+    Update,                    // schedule label — only on Schedules::, not Schedule::
+    DebugOverlaySet::All,      // impl SystemSet
+    world,                     // &mut World (needed for cleanup callbacks)
+    policy,                    // ScheduleCleanupPolicy
 );
 ```
 
-The 0.17 version had a 2-arg form without `world` and `policy`. If you see a
-"expected 3 arguments" or "wrong number of arguments" compiler error after
-upgrading, this is why.
+The 0.17 API had no `world` or `policy` parameters at all. If you see a
+"expected 3 arguments" or "expected 4 arguments" compiler error after upgrading,
+check which receiver you're calling against and match the arg count accordingly.
 
 ## `ScheduleCleanupPolicy` variants
 

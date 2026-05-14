@@ -33,7 +33,6 @@ Rules:
 | `MessageReader<'w, 's, M>` | yes | yes |
 | `MessageWriter<'w, M>` | yes | no |
 | `Local<'s, T>` | no | yes |
-| `EventReader<'w, 's, E>` | yes | yes |
 
 ## `Local<T>` — per-system state
 
