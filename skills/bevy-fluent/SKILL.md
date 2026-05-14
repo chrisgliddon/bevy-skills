@@ -63,7 +63,7 @@ pub mod i18n;
 
 // EsFluent      → typed Fluent key lookup (message ID derived from variant name).
 // BevyFluentText → registers locale-refresh systems with I18nPlugin via inventory.
-#[derive(BevyFluentText, Clone, Component, EsFluent)]
+#[derive(BevyFluentText, Clone, EsFluent)]
 #[fluent(namespace = "ui")]
 pub enum UiMessage {
     StartGame,
