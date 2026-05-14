@@ -199,6 +199,15 @@ app.insert_resource(DirectionalLightShadowMap { size: 4096 }); // default 2048
 
 ```rust
 app.insert_resource(PointLightShadowMap { size: 2048 }); // default 1024
+```
+
+### Spot light shadow map resolution
+
+```rust
+// SpotLight does NOT use PointLightShadowMap. It shares the directional-light
+// shadow map (verified at bevy_light-0.18.1/src/spot_light.rs:21).
+app.insert_resource(DirectionalLightShadowMap { size: 4096 }); // default 2048
+```
 
 ---
 
