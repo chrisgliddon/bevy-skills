@@ -111,6 +111,7 @@ A minimal Python bake script using `Pillow` and `ktx-software` bindings:
 # tools/bake_atlas.py  (pseudocode outline)
 import json
 from pathlib import Path
+import numpy as np
 from PIL import Image
 
 TILE_PX    = 32
@@ -123,13 +124,22 @@ index      = {}
 tile_id    = 0
 
 for src_path in sorted(Path("assets").rglob("*.png")):
-    tile  = Image.open(src_path).resize((TILE_PX, TILE_PX))
+    tile  = Image.open(src_path).convert("RGBA").resize((TILE_PX, TILE_PX))
     col   = tile_id % ATLAS_COLS
     row   = tile_id // ATLAS_COLS
-    x     = col * STRIDE + PADDING
-    y     = row * STRIDE + PADDING
-    # paste tile + replicate border into padding
-    atlas.paste(tile, (x, y))
+
+    # Replicate the tile's edge pixels into the PADDING band on every side.
+    # np.pad with mode="edge" duplicates the first/last row+column outward,
+    # which is what mip-safe atlases need — sampler clamping then yields the
+    # tile's edge colour instead of bleeding from the neighbour at mip >= 1.
+    arr    = np.array(tile)
+    padded = Image.fromarray(
+        np.pad(arr, ((PADDING, PADDING), (PADDING, PADDING), (0, 0)), mode="edge")
+    )
+
+    # Paste the STRIDE×STRIDE padded block; origin = (col*STRIDE, row*STRIDE)
+    # because PADDING is already baked into the block.
+    atlas.paste(padded, (col * STRIDE, row * STRIDE))
     index[str(src_path)] = tile_id
     tile_id += 1
 
