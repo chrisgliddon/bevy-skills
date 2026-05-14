@@ -36,15 +36,21 @@ via `std::fs` / `bevy::asset::AssetReader`.
 
 ## Tile Size Budget
 
-| Atlas size | Tile size | Capacity |
-|---|---|---|
-| 2048 × 2048 | 32 × 32 | 4096 tiles |
-| 2048 × 2048 | 64 × 64 | 1024 tiles |
-| 4096 × 4096 | 32 × 32 | 16 384 tiles |
+Capacity depends on whether padding is included. With **2 px padding** per edge
+the layout stride is `TILE_PX + PADDING * 2`; without padding the stride equals
+the tile size.
 
-4096 unique tile slots at 32 × 32 covers most block-based games comfortably.
-Larger atlases can be expensive on low-end and mobile GPUs; split by material
-type (opaque / alpha-tested / translucent) rather than going wider.
+| Atlas size | Tile size | Capacity (no padding) | Capacity (2 px padding, stride = tile+4) |
+|---|---|---|---|
+| 2048 × 2048 | 32 × 32 | 4096 tiles (64×64) | **3136 tiles** (56×56, stride 36) |
+| 2048 × 2048 | 64 × 64 | 1024 tiles (32×32) | 900 tiles (30×30, stride 68) |
+| 4096 × 4096 | 32 × 32 | 16 384 tiles (128×128) | 12 996 tiles (113×113, stride 36) |
+
+Padding is strongly recommended for mip safety (see next section). At 32 × 32
+with 2 px padding, `floor(2048 / 36) = 56` tiles fit per row, giving
+**3136 usable slots** — enough for most block-based games. Larger atlases can be
+expensive on low-end and mobile GPUs; split by material type
+(opaque / alpha-tested / translucent) rather than going wider.
 
 ---
 
@@ -107,13 +113,14 @@ import json
 from pathlib import Path
 from PIL import Image
 
-TILE_PX   = 32
-PADDING   = 2
-STRIDE    = TILE_PX + PADDING * 2
-ATLAS_COLS = 64          # 64 * stride ≈ 2304; crop to 2048 after packing
-atlas     = Image.new("RGBA", (ATLAS_COLS * STRIDE, ATLAS_COLS * STRIDE))
-index     = {}
-tile_id   = 0
+TILE_PX    = 32
+PADDING    = 2
+STRIDE     = TILE_PX + PADDING * 2   # 36 px per slot
+ATLAS_COLS = 56   # floor(2048 / 36) = 56 → 56 × 36 = 2016 px per axis
+                  # atlas canvas is 2016 × 2016; capacity = 56² = 3136 tiles
+atlas      = Image.new("RGBA", (ATLAS_COLS * STRIDE, ATLAS_COLS * STRIDE))
+index      = {}
+tile_id    = 0
 
 for src_path in sorted(Path("assets").rglob("*.png")):
     tile  = Image.open(src_path).resize((TILE_PX, TILE_PX))
