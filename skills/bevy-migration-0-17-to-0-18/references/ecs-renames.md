@@ -31,11 +31,7 @@ fn write(mut w: MessageWriter<Tick>) { w.write(Tick); }
 
 ## `EntityEvent::set_target` import
 
-The `EntityEvent::set_target` helper moved modules. Import from:
-
-```rust
-use bevy::ecs::entity_event::EntityEvent; // 0.18
-```
+The `EntityEvent::set_target` helper moved modules. Import from the prelude or the new module path per the 0.18 release notes.
 
 ## `FunctionSystem` new `In` generic
 
