@@ -21,7 +21,7 @@ set -euo pipefail
 # Check for similarity-rs; skip gracefully if not installed
 if ! command -v similarity-rs &>/dev/null; then
     echo "[similarity-rs] not installed — skipping duplication check"
-    echo "  Install with: cargo install similarity-rs"
+    echo "  Install with: cargo install similarity-rs --version 0.5.0"
     exit 0
 fi
 
@@ -71,12 +71,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/bin/similarity-rs
-          key: similarity-rs-v0.5
+          key: ${{ runner.os }}-similarity-rs-v0.5.0
 
       - name: Install similarity-rs
         run: |
           if ! command -v similarity-rs &>/dev/null; then
-            cargo install similarity-rs
+            cargo install similarity-rs --version 0.5.0
           fi
 
       - name: Run duplication check
