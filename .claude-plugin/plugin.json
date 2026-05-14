@@ -1,0 +1,6 @@
+{
+  "name": "bevy-skills",
+  "version": "0.18.0",
+  "description": "AI agent skills for Bevy 0.18. Teaches agents correct Bevy ECS, rendering, asset, and networking usage.",
+  "skills": "./skills"
+}
