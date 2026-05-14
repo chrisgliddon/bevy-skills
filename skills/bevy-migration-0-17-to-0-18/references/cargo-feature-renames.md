@@ -48,7 +48,7 @@ bevy = { version = "0.17", features = ["animation"] }
 bevy = { version = "0.18", features = ["gltf_animation"] }
 ```
 
-If you also use the `AnimationGraph` / `AnimationPlayer` without GLTF, you may need both `gltf_animation` and `animation` — check whether `animation` still exists as a separate flag in 0.18 for the non-GLTF path.
+If you also use `AnimationGraph` / `AnimationPlayer` without GLTF, you still need the `animation` feature in addition to `gltf_animation`.
 
 ## Picking backend names shortened
 
