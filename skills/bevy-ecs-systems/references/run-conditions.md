@@ -67,7 +67,7 @@ fn combat_tick(enemies: Query<&Enemy>) {
 
 They share the same `SystemParam` infrastructure. This means:
 - They can read resources (`Res<T>`), queries, and messages.
-- They cannot mutate world state (they run in a read-only context).
+- They *can* technically mutate world state, but doing so is strongly discouraged — keep conditions pure boolean checks.
 - Borrow conflict rules apply — a run condition and its system cannot both hold
   a mutable borrow of the same resource.
 
