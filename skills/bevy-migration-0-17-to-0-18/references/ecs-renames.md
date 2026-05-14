@@ -29,9 +29,25 @@ fn write(mut w: MessageWriter<Tick>) { w.write(Tick); }
 
 `Event` is now reserved for **observed**, entity-targeted events. Use `#[derive(EntityEvent)]` for those.
 
-## `EntityEvent::set_target` import
+## `EntityEvent` and target-mutation
 
-The `EntityEvent::set_target` helper moved modules. Import from the prelude or the new module path per the 0.18 release notes.
+`EntityEvent` is a trait in 0.18 (not just a derive), at `bevy::ecs::event::EntityEvent`:
+
+```rust
+pub trait EntityEvent: Event {
+    fn event_target(&self) -> Entity;
+}
+```
+
+There is **no `EntityEvent::set_target` method**. The trait only exposes the `event_target()` getter. To mutate the target during propagation, use the separate `SetEntityEventTarget` extension trait — auto-implemented when you derive with `#[entity_event(propagate)]`:
+
+```rust
+#[derive(EntityEvent)]
+#[entity_event(propagate)]  // auto-impls SetEntityEventTarget for you
+struct BubbleClick { entity: Entity }
+```
+
+The method is `set_event_target(&mut self, Entity)` (not `set_target`). You almost never call it manually — `#[entity_event(propagate)]` plus Bevy's observer machinery handles it for you.
 
 ## `FunctionSystem` new `In` generic
 
