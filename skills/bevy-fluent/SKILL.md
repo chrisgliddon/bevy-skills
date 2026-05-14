@@ -39,14 +39,17 @@ fallback_language = "en"
 assets_dir = "assets/locales"
 ```
 
-`src/i18n.rs` — declare the module macro in a library-reachable file:
+`src/i18n.rs` — module file holding the compile-time discovery macro:
 
 ```rust
 // Reads i18n.toml at compile time, discovers asset languages, emits metadata.
 es_fluent_manager_bevy::define_i18n_module!();
 ```
 
-`src/main.rs`:
+`src/lib.rs` — **required** so the macro module and every `BevyFluentText` /
+`EsFluent`-derived type live in the library target. `cargo es-fluent generate`
+discovers types by walking the lib's module tree; anything declared only in
+`src/main.rs` is invisible to the CLI.
 
 ```rust
 use bevy::prelude::*;
@@ -56,9 +59,9 @@ use es_fluent_manager_bevy::{
 };
 use unic_langid::langid;
 
-mod i18n;
+pub mod i18n;
 
-// EsFluent  → typed Fluent key lookup (message ID derived from variant name).
+// EsFluent      → typed Fluent key lookup (message ID derived from variant name).
 // BevyFluentText → registers locale-refresh systems with I18nPlugin via inventory.
 #[derive(BevyFluentText, Clone, Component, EsFluent)]
 #[fluent(namespace = "ui")]
@@ -68,17 +71,12 @@ pub enum UiMessage {
     QuitGame,
 }
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        // Loads .ftl files from assets/locales/<lang>/*.ftl
-        .add_plugins(I18nPlugin::with_language(langid!("en")))
-        .add_systems(Startup, setup_ui)
-        .add_systems(Update, switch_locale_on_keypress)
-        .run();
+pub fn build_i18n_plugin() -> I18nPlugin {
+    // Loads .ftl files from assets/locales/<lang>/*.ftl
+    I18nPlugin::with_language(langid!("en"))
 }
 
-fn setup_ui(mut commands: Commands) {
+pub fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     // Pair FluentText<T> with Text::new("") — the plugin fills in the
@@ -89,7 +87,7 @@ fn setup_ui(mut commands: Commands) {
     ));
 }
 
-fn switch_locale_on_keypress(
+pub fn switch_locale_on_keypress(
     keys: Res<ButtonInput<KeyCode>>,
     requested: Res<RequestedLanguageId>,
     mut locale_events: MessageWriter<LocaleChangeEvent>,
@@ -107,6 +105,24 @@ fn switch_locale_on_keypress(
 }
 ```
 
+`src/main.rs` — thin binary entry point that pulls everything from the lib:
+
+```rust
+use bevy::prelude::*;
+use my_game::{build_i18n_plugin, setup_ui, switch_locale_on_keypress};
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(build_i18n_plugin())
+        .add_systems(Startup, setup_ui)
+        .add_systems(Update, switch_locale_on_keypress)
+        .run();
+}
+```
+
+Replace `my_game` with your package name (the `name` field in `Cargo.toml`). Cargo implicitly links `src/lib.rs` into the binary when they share a package, which is what wires the `inventory` registrations into the running app.
+
 ### Custom asset path
 
 ```rust
@@ -123,14 +139,14 @@ I18nPlugin::with_config(
 
 - **`BevyFluentText` vs `EsFluent` are separate derives.** `EsFluent` makes a type a typed Fluent message. `BevyFluentText` registers it with `I18nPlugin` for automatic `FluentText<T>` refresh. You need both on types used in UI.
 - **`define_i18n_module!()` reads `i18n.toml` at compile time.** Place `i18n.toml` in the crate root. Missing or malformed config is a compile error, not a runtime panic.
-- **Put `define_i18n_module!()` in a library target** (`src/lib.rs` or `src/i18n.rs`). Placing it only in `src/main.rs` hides registered types from `cargo es-fluent generate`.
+- **Put `define_i18n_module!()` in a file that is part of the library target** — i.e., `src/lib.rs` directly, or a module declared from it (e.g. `pub mod i18n;` in `src/lib.rs` with `define_i18n_module!()` in `src/i18n.rs`). Placing it only in the binary target (`src/main.rs` or any module only reachable from there) hides registered types from `cargo es-fluent generate`. The same rule applies to every `BevyFluentText` / `EsFluent`-derived type — keep them in the lib, expose them to the binary via `use my_game::*;`.
 - **`FluentText<T>` needs a sibling `Text::new("")`** on the same entity (or a child). The plugin writes the localized string into the Bevy `Text` component.
 - **Events are Messages.** Use `MessageWriter<LocaleChangeEvent>` and `MessageReader<LocaleChangedEvent>` — not `EventWriter`/`EventReader` (renamed in Bevy 0.17).
 - **`I18nPluginStartupError`** is a resource inserted when setup fails (invalid config, duplicate registration). Check for it in a startup system to handle graceful degradation.
 - **`macros` feature required** for `BevyFluentText` and `define_i18n_module!()`. The default feature set enables it; opt out only with `default-features = false`.
 - **`es-fluent` CLI** (`cargo es-fluent generate|watch|check|clean|sync|tree|format`) operates on the library target. Install via `cargo install es-fluent-cli` and run from the crate root alongside `i18n.toml`.
 - **`BevyI18n` system param** (imperative localization) exists in the GitHub source but is **not exported in crates.io `0.18.12`**. If you need imperative lookup in a system, query `I18nBundle` and `I18nResource` directly, or wait for a later release.
-- **Stated API claim** that `BevyFluentText` is "a UI text component" is inaccurate. `BevyFluentText` is a **derive macro**; the component that wraps UI text is `FluentText<T>`.
+- **`BevyFluentText` is a derive macro, not a component.** It registers refresh systems with `I18nPlugin` via `inventory`. The component that wraps UI text is `FluentText<T>`.
 
 ## See also
 
