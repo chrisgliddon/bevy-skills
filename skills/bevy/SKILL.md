@@ -49,7 +49,6 @@ fn setup(mut commands: Commands) {
 | RON block definitions, palette, KTX2 atlas baking | `bevy-voxel-data` |
 | `es-fluent-manager-bevy` i18n — `FluentText<T>`, `BevyFluentText`, `LocaleChangeEvent`, `i18n.toml` | `bevy-fluent` |
 | `Node`, `Button`, `Interaction`, `children![]`, `TextFont`, `InputFocus`, `BorderRadius`, `BackgroundColor` | `bevy-ui` |
-| Detecting copy-paste / near-duplicate Rust code before committing (`similarity-rs --cross-file`) | `similarity-rs` |
 
 ## Cardinal rules (every Bevy 0.18 task)
 
