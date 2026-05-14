@@ -72,7 +72,7 @@ let uv_sphere = meshes.add(Sphere::new(0.5).mesh().uv(32, 18));
 let ico_sphere = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
 
 // Or build via SphereKind explicitly.
-use bevy::math::primitives::SphereKind;
+use bevy::mesh::{SphereKind, SphereMeshBuilder};
 let builder = SphereMeshBuilder::new(0.5, SphereKind::Ico { subdivisions: 5 });
 ```
 

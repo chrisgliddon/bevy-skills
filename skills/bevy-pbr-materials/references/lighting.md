@@ -179,7 +179,7 @@ commands.spawn((
 the same bundle or via a separate `insert`:
 
 ```rust
-use bevy::pbr::CascadeShadowConfigBuilder;
+use bevy::light::CascadeShadowConfigBuilder;
 
 // In the spawn bundle:
 CascadeShadowConfigBuilder {
