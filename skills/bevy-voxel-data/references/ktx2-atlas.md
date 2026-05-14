@@ -123,7 +123,14 @@ atlas      = Image.new("RGBA", (ATLAS_COLS * STRIDE, ATLAS_COLS * STRIDE))
 index      = {}
 tile_id    = 0
 
+ATLAS_CAPACITY = ATLAS_COLS * ATLAS_COLS   # 3136 slots for this config
+
 for src_path in sorted(Path("assets").rglob("*.png")):
+    if tile_id >= ATLAS_CAPACITY:
+        raise OverflowError(
+            f"Atlas full: {tile_id} tiles exceeds capacity {ATLAS_CAPACITY}. "
+            "Increase ATLAS_COLS, use a larger atlas, or split by material type."
+        )
     tile  = Image.open(src_path).convert("RGBA").resize((TILE_PX, TILE_PX))
     col   = tile_id % ATLAS_COLS
     row   = tile_id // ATLAS_COLS
