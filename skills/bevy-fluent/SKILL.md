@@ -147,6 +147,7 @@ I18nPlugin::with_config(
 - **`es-fluent` CLI** (`cargo es-fluent generate|watch|check|clean|sync|tree|format`) operates on the library target. Install via `cargo install es-fluent-cli` and run from the crate root alongside `i18n.toml`.
 - **`BevyI18n` system param** (imperative localization) exists in the GitHub source but is **not exported in crates.io `0.18.12`**. If you need imperative lookup in a system, query `I18nBundle` and `I18nResource` directly, or wait for a later release.
 - **`BevyFluentText` is a derive macro, not a component.** It registers refresh systems with `I18nPlugin` via `inventory`. The component that wraps UI text is `FluentText<T>`.
+- **Minimum rustc version: 1.95.** `es-fluent` 0.15.x uses language features stabilized in Rust 1.95. Older toolchains fail with cryptic trait-resolution errors. Pin via `rust-toolchain.toml` at the crate root: `[toolchain]\nchannel = "1.95"`, or run `cargo +1.95 check` ad-hoc.
 
 ## See also
 
