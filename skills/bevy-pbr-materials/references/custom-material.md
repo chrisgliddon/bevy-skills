@@ -186,3 +186,16 @@ impl AsBindGroup for MyMaterial {
 - **Vertex shader required for vertex animation** — if your WGSL modifies vertex
   positions, also override `vertex_shader()` and mark `enable_prepass() -> false`
   to prevent the prepass from rendering with the wrong depth.
+
+- **Draw functions are per-phase in 0.18.** The old single `MaterialDrawFunction`
+  split into `MainPassOpaqueDrawFunction`, `MainPassAlphaMaskDrawFunction`,
+  `MainPassTransparentDrawFunction`, and `PrepassOpaqueDrawFunction` /
+  `PrepassAlphaMaskDrawFunction`. If you're registering a draw function manually
+  (rare — `MaterialPlugin` handles this), register against the phase you actually
+  render in. Mixing them silently renders the material in the wrong pass.
+
+- **`BindGroupLayout::create(...)` was removed.** Build layouts via
+  `BindGroupLayoutDescriptor::new(...)` (or the `#[derive(AsBindGroup)]` macro,
+  which is the recommended path) and resolve through
+  `pipeline_cache.get_bind_group_layout(&desc)`. The old
+  `device.create_bind_group_layout(&entries)` shape no longer compiles.
