@@ -16,6 +16,7 @@ metadata:
 - Bundling related state into a single system parameter via `#[derive(SystemParam)]`.
 - Grouping systems into a `SystemSet` so callers can order against the whole group.
 - Gating systems with run conditions (`run_if`, `on_message`, `in_state`, `resource_exists`, `any_with_component`).
+- Hooking into state transitions with `OnEnter(S)` / `OnExit(S)` / `OnTransition { from, to }`.
 - Hot-removing systems at runtime (e.g. tearing down a debug overlay) with `remove_systems_in_set`.
 - Hitting `ScheduleBuildError` ambiguity panics — the executor no longer guesses.
 
@@ -26,25 +27,22 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 #[derive(SystemSet, Hash, PartialEq, Eq, Clone, Debug)]
-enum GameLoop {
-    Input,
-    Simulate,
-    Render,
-}
+enum GameLoop { Input, Simulate, Render }
+
+#[derive(States, Default, Hash, PartialEq, Eq, Clone, Debug)]
+enum AppState { #[default] Loading, Playing }
 
 #[derive(Resource, Default)]
 struct Score(u32);
 
 #[derive(Message)]
-struct GoalScored {
-    team: u8,
-}
+struct GoalScored { team: u8 }
 
 // Composite param: pass one argument, get four.
 // 'w = world borrow; 's = system-local state borrow.
 #[derive(SystemParam)]
 struct GameCtx<'w, 's> {
-    time: Res<'w, Time>,
+    time:  Res<'w, Time>,
     score: ResMut<'w, Score>,
     goals: MessageReader<'w, 's, GoalScored>,
 }
@@ -54,9 +52,13 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<Score>()
         .add_message::<GoalScored>()
+        .init_state::<AppState>()
         .configure_sets(Update, (GameLoop::Input, GameLoop::Simulate, GameLoop::Render).chain())
+        // State schedule: fires once when entering Playing.
+        .add_systems(OnEnter(AppState::Playing), spawn_level)
+        // State schedule: fires once when leaving Playing.
+        .add_systems(OnExit(AppState::Playing), despawn_level)
         .add_systems(Update, read_input.in_set(GameLoop::Input))
-        // Two run conditions: only when a GoalScored fired AND not paused.
         .add_systems(
             Update,
             tally_goals
@@ -65,6 +67,14 @@ fn main() {
         )
         .add_systems(Update, draw_hud.in_set(GameLoop::Render))
         .run();
+}
+
+fn spawn_level(mut commands: Commands) {
+    commands.spawn(Name::new("level"));
+}
+
+fn despawn_level(mut commands: Commands, query: Query<Entity, With<Name>>) {
+    for e in &query { commands.entity(e).despawn(); }
 }
 
 fn read_input(mut writer: MessageWriter<GoalScored>) {
@@ -79,23 +89,7 @@ fn tally_goals(mut ctx: GameCtx) {
     }
 }
 
-fn draw_hud(score: Res<Score>) {
-    let _ = score.0;
-}
-
-// Removing a whole set of systems at runtime — new in 0.18.
-// Useful for debug overlays, mod hot-unload, transient inspector UIs.
-fn unload_render(world: &mut World) {
-    use bevy::ecs::schedule::ScheduleCleanupPolicy;
-    world.resource_scope(|world, mut schedules: Mut<Schedules>| {
-        let _ = schedules.remove_systems_in_set(
-            Update,
-            GameLoop::Render,
-            world,
-            ScheduleCleanupPolicy::default(), // RemoveSetAndSystems
-        );
-    });
-}
+fn draw_hud(score: Res<Score>) { let _ = score.0; }
 ```
 
 ## Run condition cheat sheet
@@ -109,19 +103,29 @@ fn unload_render(world: &mut World) {
 | `state_changed::<MyState>` | The state changed this tick. |
 | `any_with_component::<C>` | At least one entity has `C`. |
 
-Combine with `.and()` / `.or()`: `run_if(in_state(GameState::Playing).and(resource_exists::<NetSession>))`.
+Combine with `.and()` / `.or()`: `run_if(in_state(GameState::Playing).and(resource_exists::<NetSession>()))`.
+
+## Topics
+
+| Topic | Reference |
+|---|---|
+| `#[derive(SystemParam)]`, `'w`/`'s` lifetimes, `Local<T>`, `Commands` deferred apply | [references/system-params.md](references/system-params.md) |
+| `#[derive(SystemSet)]` requirements, `.in_set`, `.configure_sets`, `.chain()` | [references/system-sets.md](references/system-sets.md) |
+| Every built-in condition, `.and()`/`.or()`/`not()`, custom conditions, cost rule | [references/run-conditions.md](references/run-conditions.md) |
+| `OnEnter(S)` / `OnExit(S)` / `OnTransition`, `NextState<S>`, `set_if_neq` | [references/state-schedules.md](references/state-schedules.md) |
+| `.before`, `.after`, `.chain()`, `.ambiguous_with`, debugging ambiguity errors | [references/ordering.md](references/ordering.md) |
+| `remove_systems_in_set`, `ScheduleCleanupPolicy`, the 3-arg signature, side-effect limits | [references/runtime-removal.md](references/runtime-removal.md) |
 
 ## Gotchas (0.18)
 
-- **`SimpleExecutor` is gone.** Any ambiguity between systems that share data is now a build-time error. Fix with `.before(other)`, `.after(other)`, `.chain()`, `.ambiguous_with(other)` (explicit accept), or `.in_set(...).before(SomeSet)`.
-- **`MessageReader` / `MessageWriter`, not `EventReader` / `EventWriter`.** Renamed in 0.17. The trait derive is `#[derive(Message)]` and the registrar is `app.add_message::<M>()`.
-- **Run conditions are themselves systems.** They have full `SystemParam` access. Don't put expensive work in a condition — gate inside the system instead.
-- **`SystemParam` derive needs two lifetimes.** `'w` is the world borrow; `'s` is the system-local state. `MessageReader<'w, 's, M>` and `Local<'s, T>` both need `'s`; `Res<'w, R>` only needs `'w`.
-- **`remove_systems_in_set` doesn't propagate to nested schedules.** If `MySet` is in `Update`, you must `schedules.get_mut(Update)`, not e.g. `FixedUpdate`.
-- **Hot system removal does not unwind side effects.** Resources, entities, and observers stay. If your set spawned an overlay UI, despawn the entities in a separate teardown system.
+- **`SimpleExecutor` is gone.** Any ambiguity between systems sharing data is now a build-time error. Fix with `.before`, `.after`, `.chain()`, or `.ambiguous_with(other)` (explicit accept). See [references/ordering.md](references/ordering.md).
+- **`MessageReader` / `MessageWriter`, not `EventReader` / `EventWriter`.** Renamed in 0.17. Trait derive is `#[derive(Message)]`; registrar is `app.add_message::<M>()`.
+- **`next_state.set(S)` always fires `OnExit`/`OnEnter` in 0.18.** Use `set_if_neq` for the old behaviour. See [references/state-schedules.md](references/state-schedules.md).
+- **`remove_systems_in_set` takes 3 args in 0.18** (added `world` and `ScheduleCleanupPolicy`). See [references/runtime-removal.md](references/runtime-removal.md).
 
 ## See also
 
-- `bevy-core-concepts` — which schedule to add a system to.
-- `bevy-ecs-queries` — query is one of many `SystemParam`s.
-- `bevy-migration-0-17-to-0-18` — full Message/Event rename.
+- `bevy-core-concepts` — which schedule (`Startup`, `Update`, `FixedUpdate`) to add a system to.
+- `bevy-ecs-queries` — query is one of many `SystemParam`s; `Changed<T>` / `Added<T>` filters.
+- `bevy-ecs-components` — defining the `Component` types your systems act on.
+- `bevy-migration-0-17-to-0-18` — full Message/Event rename, `MaterialPlugin` changes.
