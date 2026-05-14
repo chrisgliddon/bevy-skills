@@ -100,5 +100,16 @@ The plugin inserts `RequestedLanguageId` with this value before any systems run.
 
 ---
 
+## Pitfalls
+
+### `BevyI18n` system param not exported in crates.io release
+
+`BevyI18n` system param (imperative localization) exists in the GitHub source
+but is **not exported in crates.io `0.18.12`**. If you need imperative lookup
+in a system, query `I18nBundle` and `I18nResource` directly, or wait for a
+later release.
+
+---
+
 See also: [components.md](components.md),
 [lib-target-layout.md](lib-target-layout.md).

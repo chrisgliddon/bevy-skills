@@ -80,4 +80,23 @@ will be overridden by the file automatically — no explicit version needed in C
 
 ---
 
+## `macros` feature required for `BevyFluentText` and `define_i18n_module!()`
+
+The `macros` feature is required for `BevyFluentText` and
+`define_i18n_module!()`. The default feature set enables it; opt out only with
+`default-features = false`.
+
+If you set `default-features = false` (common in size-sensitive game projects),
+you must re-add `macros` explicitly:
+
+```toml
+es-fluent-manager-bevy = { version = "0.18", default-features = false, features = ["macros"] }
+```
+
+Without the `macros` feature the proc-macro crate is not compiled and
+`BevyFluentText` / `define_i18n_module!()` are not available, producing a
+"cannot find derive macro" or "unresolved import" compile error.
+
+---
+
 See also: [cli.md](cli.md), [lib-target-layout.md](lib-target-layout.md).
