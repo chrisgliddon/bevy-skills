@@ -60,6 +60,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 border_radius: BorderRadius::MAX,
                 ..default()
             },
+            // Spawn-time border is what appears at frame 0 — `Changed<Interaction>`
+            // does NOT fire on startup, so the `Interaction::None` arm below
+            // (which sets the border to BLACK) only runs after the first mouse
+            // event. This is the frame-0 invariant: see Gotchas #1 + references/gotchas.md.
             BorderColor::all(Color::WHITE),
             BackgroundColor(Color::BLACK),
             children![(
