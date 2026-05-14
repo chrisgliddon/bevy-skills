@@ -195,12 +195,10 @@ CascadeShadowConfigBuilder {
 app.insert_resource(DirectionalLightShadowMap { size: 4096 }); // default 2048
 ```
 
-### Point/spot shadow map resolution
+### Point light shadow map resolution
 
 ```rust
 app.insert_resource(PointLightShadowMap { size: 2048 }); // default 1024
-// DirectionalLightShadowMap also covers SpotLight
-```
 
 ---
 
