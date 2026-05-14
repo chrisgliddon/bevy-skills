@@ -47,6 +47,7 @@ fn setup(mut commands: Commands) {
 | `StandardMaterial`, `MaterialPlugin<M>`, `AsBindGroup::label()`, 0.18 PBR shading fix | `bevy-pbr-materials` |
 | Voxel meshing with `block-mesh-rs`, chunk pipeline, greedy quads | `bevy-voxel-pipeline` |
 | RON block definitions, palette, KTX2 atlas baking | `bevy-voxel-data` |
+| `es-fluent-manager-bevy` i18n — `FluentText<T>`, `BevyFluentText`, `LocaleChangeEvent`, `i18n.toml` | `bevy-fluent` |
 
 ## Cardinal rules (every Bevy 0.18 task)
 
