@@ -48,6 +48,7 @@ fn setup(mut commands: Commands) {
 | Voxel meshing with `block-mesh-rs`, chunk pipeline, greedy quads | `bevy-voxel-pipeline` |
 | RON block definitions, palette, KTX2 atlas baking | `bevy-voxel-data` |
 | `es-fluent-manager-bevy` i18n — `FluentText<T>`, `BevyFluentText`, `LocaleChangeEvent`, `i18n.toml` | `bevy-fluent` |
+| `Node`, `Button`, `Interaction`, `children![]`, `TextFont`, `InputFocus`, `BorderRadius`, `BackgroundColor` | `bevy-ui` |
 
 ## Cardinal rules (every Bevy 0.18 task)
 

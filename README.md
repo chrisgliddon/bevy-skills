@@ -49,6 +49,7 @@ OpenCode reads `~/.claude/skills/` natively — no duplication needed if both ag
 | [`bevy-voxel-pipeline`](skills/bevy-voxel-pipeline/SKILL.md) | `block-mesh-rs` integration, greedy quads, threading on `AsyncComputeTaskPool`. |
 | [`bevy-voxel-data`](skills/bevy-voxel-data/SKILL.md) | RON block catalog, palette by `BlockId`, KTX2 atlas baking, runtime binding. |
 | [`bevy-fluent`](skills/bevy-fluent/SKILL.md) | `es-fluent-manager-bevy` i18n: `FluentText<T>`, `BevyFluentText`, `LocaleChangeEvent`, `i18n.toml`. |
+| [`bevy-ui`](skills/bevy-ui/SKILL.md) | `Node`, `Button`, `Interaction`, `children![]`, `TextFont`, `InputFocus`, `BorderRadius`, `BackgroundColor`. |
 
 More skills (server, networking, animation, UI, rendering deep dives) ship in subsequent phases.
 
