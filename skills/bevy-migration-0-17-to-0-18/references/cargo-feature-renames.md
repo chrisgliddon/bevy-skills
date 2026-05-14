@@ -48,7 +48,14 @@ bevy = { version = "0.17", features = ["animation"] }
 bevy = { version = "0.18", features = ["gltf_animation"] }
 ```
 
-If you also use `AnimationGraph` / `AnimationPlayer` without GLTF, you still need the `animation` feature in addition to `gltf_animation`.
+There is no standalone `animation` feature in 0.18 — the rename is complete. For non-GLTF animation (`AnimationPlayer` + `AnimationGraph` driven from custom clips or `bevy_scene`), enable the `bevy_animation` subcrate selector when running with `default-features = false`:
+
+```toml
+# 0.18 — non-GLTF animation, minimal feature set
+bevy = { version = "0.18", default-features = false, features = ["bevy_animation"] }
+```
+
+`gltf_animation` is the GLTF-binding layer on top of `bevy_animation`; enable both if you need GLTF clips plus custom-built clips in the same crate.
 
 ## Picking backend names shortened
 
