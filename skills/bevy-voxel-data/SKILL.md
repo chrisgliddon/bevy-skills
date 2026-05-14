@@ -1,6 +1,6 @@
 ---
 name: bevy-voxel-data
-description: Use when defining voxel blocks in RON (`name`, `textures`, `flags`), building a runtime palette mapping `BlockId -> BlockDef`, baking per-block textures into a KTX2 atlas, or binding the atlas as `StandardMaterial.base_color_texture` so meshed quads sample by face index. Generic Bevy 0.18 voxel-data patterns — no game-specific data baked in.
+description: Use when defining voxel blocks in RON (`name`, `textures`, `flags`), building a runtime palette mapping `BlockId -> BlockDef`, baking per-block textures into a KTX2 atlas, binding the atlas as `StandardMaterial.base_color_texture`, choosing a runtime storage format (flat array, RLE, palette compression), or optimizing procedural world generation (extremity bounds, noise upsampling, noise caching). Generic Bevy 0.18 voxel-data patterns — no game-specific data baked in.
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:
@@ -9,7 +9,7 @@ metadata:
   bevy_version: "0.18"
 ---
 
-# Bevy 0.18 — Voxel data (RON, palette, KTX2 atlas)
+# Bevy 0.18 — Voxel data (RON, palette, KTX2 atlas, generation, storage)
 
 ## When to use this skill
 
@@ -17,6 +17,9 @@ metadata:
 - Building a runtime palette keyed by `BlockId` (`u16`/`u32`) for fast lookup during meshing.
 - Packing per-block textures into a single atlas so all chunks can share one material.
 - Switching the atlas to KTX2 for GPU-friendly compressed delivery.
+- Choosing a runtime chunk storage format (flat array, RLE, palette compression, hybrid).
+- Optimizing procedural world generation: extremity bound checking, noise upsampling, noise caching, cross-biome noise sharing.
+- Understanding the Rust/Bevy voxel crate ecosystem and its current gaps.
 
 ## Block catalog in RON
 
@@ -143,45 +146,37 @@ for (id, def) in catalog.blocks.iter().enumerate() {
 
 ## Atlas binding
 
-Bake all referenced textures into one image (KTX2 if you want compressed, PNG if you don't) and bind it as the material's base-colour texture:
-
-```rust
-use bevy::prelude::*;
-
-# fn _bind(
-mut materials: ResMut<Assets<StandardMaterial>>,
-atlas_image: Handle<Image>,
-# ) {
-let material = materials.add(StandardMaterial {
-    base_color_texture: Some(atlas_image),
-    perceptual_roughness: 1.0,
-    metallic: 0.0,
-    unlit: false,
-    ..default()
-});
-let _ = material;
-# }
-```
-
-The mesh's UVs reference tile indices encoded as offsets into the atlas. Tile index → UV is:
+Bake all referenced textures into one image (KTX2 compressed or PNG) and bind
+as `StandardMaterial.base_color_texture`. Tile index → UV:
 
 ```text
 tile_x = tile_index % atlas_cols
 tile_y = tile_index / atlas_cols
-uv0    = (tile_x / atlas_cols,        tile_y / atlas_rows)
-uv1    = ((tile_x + 1) / atlas_cols,  (tile_y + 1) / atlas_rows)
+uv0    = (tile_x / atlas_cols,       tile_y / atlas_rows)
+uv1    = ((tile_x+1) / atlas_cols,  (tile_y+1) / atlas_rows)
 ```
 
-Compute per-vertex UVs in the meshing pass using the `face_tiles` lookup from the palette.
+Compute per-vertex UVs in the meshing pass from `palette.by_id[id].face_tiles`.
+
+## Reference topics
+
+| File | Covers |
+|------|--------|
+| [references/generation.md](references/generation.md) | Extremity bound checking, 4× noise upsampling, noise caching/hoisting, cross-biome noise sharing, SIMD noise libraries, `AsyncComputeTaskPool` integration |
+| [references/storage-formats.md](references/storage-formats.md) | Flat arrays, RLE, palette compression (Minecraft 1.13+ style), hybrid strategies, parallel bitmaps, memory-bandwidth lens, John Lin's multi-format argument |
+| [references/ecosystem.md](references/ecosystem.md) | Meshing crates, storage/indexing crates (including archived `building-blocks`), noise crates, file-format loaders, full-engine plugins, production references (Sodium, VOXLAP, Cuberite, Luanti), ecosystem gaps |
 
 ## Gotchas
 
-- **KTX2 is opt-in.** Bevy supports KTX2 via the `ktx2` Cargo feature (on by default in the high-level `3d` collection). For trimmed WASM builds add it explicitly. Use BC7 (desktop) or ETC2/ASTC (mobile) compression depending on target.
-- **Atlas size budget.** A 2048×2048 atlas with 32×32 tiles holds 4096 unique tile slots — usually plenty. Larger atlases can be expensive on older GPUs; consider splitting into multiple materials by texture type (opaque, alpha-tested, translucent).
-- **Texture bleeding.** When the camera looks at quads at glancing angles, mipmapping samples across tile boundaries and shows the neighbour. Fix: 2-pixel padding around each tile, plus clamp-to-edge sampling per-tile (requires a texture array, not a 2D atlas).
-- **Don't bake the atlas at runtime in shipped builds.** Bake at content-build time (a sidecar script), commit the atlas + a JSON index, and load both at runtime. The block-catalog loader resolves block face paths through the index.
-- **Palette ordering is the BlockId space.** Reordering the catalog after a save file ships will break that save. Always append; never reorder.
-- **Visibility `Translucent` needs alpha blending in the material.** `StandardMaterial { alpha_mode: AlphaMode::Blend, .. }` — and a different mesh batch from opaque blocks, since translucent quads can't be merged into the same draw call.
+- **KTX2 is opt-in.** Bevy supports KTX2 via the `ktx2` Cargo feature (on by default in `3d`). For trimmed WASM builds add it explicitly. Use BC7 (desktop) or ETC2/ASTC (mobile).
+- **Atlas size budget.** A 2048×2048 atlas with 32×32 tiles holds 4096 tile slots. Split into multiple materials by texture type (opaque, alpha-tested, translucent) if needed.
+- **Texture bleeding.** Mipmapping samples across tile boundaries at glancing angles. Fix: 2-pixel padding + clamp-to-edge sampling per-tile (requires a texture array, not a 2D atlas).
+- **Don't bake the atlas at runtime in shipped builds.** Bake at content-build time, commit atlas + JSON index, load both at runtime.
+- **Palette ordering is the BlockId space.** Always append; never reorder after a save file ships.
+- **Visibility `Translucent` needs alpha blending.** `StandardMaterial { alpha_mode: AlphaMode::Blend, .. }` — separate mesh batch from opaque blocks.
+- **Extremity bounds + 4× upsampling do most of the generation work.** A ~25× throughput gain combines four techniques; extremity bounds (~15× in isolation) and 4× upsampling (~5×) account for the bulk of the compute reduction. See [generation](references/generation.md).
+- **Palette compression scales where RLE collapses.** RLE degrades toward 1:1 as block-type fragmentation increases. Minecraft-style palette + packed-variable-bit-width indices gives O(1) access and scales gracefully. No widely-adopted Rust crate implements this yet. See [storage-formats](references/storage-formats.md).
+- **The "which format?" question is wrong.** Voxel engines should maintain multiple storage formats with conversion infrastructure, just as graphics engines use different mesh representations per task. See [storage-formats](references/storage-formats.md).
 
 ## See also
 
