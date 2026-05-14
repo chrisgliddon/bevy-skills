@@ -64,52 +64,26 @@ fn setup(
 
 ## Custom Material — 0.18 shape
 
-```rust
-use bevy::asset::{Asset, AssetPath};
-use bevy::pbr::{Material, MaterialPlugin};
-use bevy::prelude::*;
-use bevy::reflect::TypePath;
-use bevy::render::render_resource::AsBindGroup;
-use bevy::shader::ShaderRef;
+Custom materials with the `Material` trait and `AsBindGroup` are covered in
+detail at [references/custom-material.md](references/custom-material.md).
 
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
-struct DissolveMaterial {
-    #[uniform(0)]
-    progress: f32,
-    #[texture(1)]
-    #[sampler(2)]
-    noise: Handle<Image>,
-}
+## Topics
 
-impl Material for DissolveMaterial {
-    // 0.18: shader paths via ShaderRef::Path or ShaderRef::Handle.
-    fn fragment_shader() -> ShaderRef {
-        ShaderRef::Path(AssetPath::from("shaders/dissolve.wgsl"))
-    }
-
-    // 0.18: prepass/shadow config moved from plugin fields to trait methods.
-    // Override only when you need to opt out — both default to true.
-    fn enable_prepass() -> bool { false }
-}
-
-# fn _wire(app: &mut App) {
-app.add_plugins(MaterialPlugin::<DissolveMaterial>::default());
-# }
-```
+| Topic | Reference |
+|-------|-----------|
+| `PointLight`, `DirectionalLight`, `SpotLight` field shapes; `GlobalAmbientLight`; shadow cascades | [references/lighting.md](references/lighting.md) |
+| `Plane3d`, `Cuboid`, `Sphere`, `Circle`, `Cylinder`, `Capsule3d`, `Torus` constructors and orientation gotchas | [references/mesh-primitives.md](references/mesh-primitives.md) |
+| `Material` trait methods, `AsBindGroup` attributes, `ShaderRef` variants, `MaterialPlugin` wiring | [references/custom-material.md](references/custom-material.md) |
 
 ## Gotchas (0.18)
 
-- **`MaterialPlugin::<M> { prepass_enabled, shadows_enabled, ..default() }` is gone.** Override the `Material` trait methods instead:
-  ```rust
-  fn enable_prepass() -> bool { false }
-  fn enable_shadows() -> bool { false }
-  ```
-- **`AsBindGroup::label()` is required.** The `#[derive(AsBindGroup)]` macro generates a `label()` automatically; if you hand-roll the impl, you must add it.
-- **PBR shading fix.** 0.18 corrected a long-standing Fresnel/specular issue that made everything look "overly glossy". Materials authored for 0.17 may look noticeably less reflective in 0.18 — re-tune `perceptual_roughness` / `reflectance` if shipped textures look wrong.
-- **Mesh component wrappers.** Use `Mesh3d(handle)` and `MeshMaterial3d(material_handle)` rather than spawning bare `Handle<Mesh>` / `Handle<StandardMaterial>`. The wrappers are what the renderer queries on.
-- **Draw functions are per-phase.** If you used `MaterialDrawFunction`, the 0.18 split is `MainPassOpaqueDrawFunction`, `MainPassAlphaMaskDrawFunction`, `PrepassOpaqueDrawFunction`. Pick the phase you actually run in.
-- **Bind group layouts**: `BindGroupLayout::create(...)` was replaced — use `BindGroupLayoutDescriptor::new(...)` then `pipeline_cache.get_bind_group_layout(&desc)`.
-- **`Color::rgb(...)` is gone** — use `Color::srgb(...)` (sRGB-aware) or `Color::linear_rgb(...)`. This is a 0.13+ change but still in stale training data.
+- **`MaterialPlugin::<M> { prepass_enabled, shadows_enabled, ..default() }` is gone.** Override the `Material` trait methods instead — see [references/custom-material.md](references/custom-material.md).
+- **`AsBindGroup::label()` is required.** The `#[derive(AsBindGroup)]` macro generates it automatically; hand-rolled impls must add it.
+- **PBR shading fix.** 0.18 corrected a long-standing Fresnel/specular issue that made everything look "overly glossy". Materials authored for 0.17 may look less reflective in 0.18 — re-tune `perceptual_roughness` / `reflectance`.
+- **Mesh component wrappers.** Use `Mesh3d(handle)` and `MeshMaterial3d(material_handle)` — the wrappers are what the renderer queries on.
+- **`Plane3d::new` takes `Vec2` for `half_size`**, not a scalar — see [references/mesh-primitives.md](references/mesh-primitives.md).
+- **`Color::rgb(...)` is gone** — use `Color::srgb(...)` or `Color::linear_rgb(...)`.
+- **Directional light position is ignored** — only rotation matters. See [references/lighting.md](references/lighting.md).
 
 ## See also
 
