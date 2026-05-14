@@ -100,5 +100,6 @@ fn full_screen_overlay() -> impl Bundle {
   all four sides. Individual sides: `UiRect { top: px(10), ..default() }`.
 
 - **`percent(100)` on a child requires the parent to have a definite size.** If
-  the parent's size is also `Auto`, the percent resolves to zero. Use `Vh(100.0)`
-  / `Vw(100.0)` for viewport-relative sizes.
+  the parent's size is also `Auto`, the percent resolves to zero. Use `vh(100.0)`
+  / `vw(100.0)` (lowercase — they're free functions in `bevy::prelude`) for
+  viewport-relative sizes.
