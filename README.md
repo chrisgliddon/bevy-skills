@@ -32,6 +32,14 @@ OpenCode reads `~/.claude/skills/` natively — no duplication needed if both ag
 
 ## The collection (Phase 1 + Phase 2)
 
+> **Where to start.** New to the collection? Load these five first, in order — they are the foundation everything else builds on:
+>
+> 1. **[`bevy`](skills/bevy/SKILL.md)** — router. Tells you which sibling skill applies to your task.
+> 2. **[`bevy-core-concepts`](skills/bevy-core-concepts/SKILL.md)** — `App`, `Plugin`, schedules. Without this, the rest won't make sense.
+> 3. **[`bevy-ecs-components`](skills/bevy-ecs-components/SKILL.md)** + **[`bevy-ecs-queries`](skills/bevy-ecs-queries/SKILL.md)** + **[`bevy-ecs-systems`](skills/bevy-ecs-systems/SKILL.md)** — the ECS triangle. Read all three before writing your first system.
+>
+> Migrating from 0.17? Read [`bevy-migration-0-17-to-0-18`](skills/bevy-migration-0-17-to-0-18/SKILL.md) before touching anything else.
+
 | Skill | One-line trigger |
 |---|---|
 | [`bevy`](skills/bevy/SKILL.md) | Router. Pins Bevy 0.18, indexes every sibling skill. Read first. |
@@ -46,13 +54,14 @@ OpenCode reads `~/.claude/skills/` natively — no duplication needed if both ag
 | [`bevy-custom-assets`](skills/bevy-custom-assets/SKILL.md) | Writing `AssetLoader` — must `#[derive(TypePath)]` in 0.18. |
 | [`bevy-cameras`](skills/bevy-cameras/SKILL.md) | `Camera3d`, `RenderTarget` as a component, `FreeCamera`/`PanCamera`, `GlobalAmbientLight`. |
 | [`bevy-pbr-materials`](skills/bevy-pbr-materials/SKILL.md) | `StandardMaterial`, custom `Material`, required `AsBindGroup::label()`, 0.18 Fresnel fix. |
+| [`bevy-voxel-data`](skills/bevy-voxel-data/SKILL.md) | Read before `bevy-voxel-pipeline`. RON block catalog, palette by `BlockId`, KTX2 atlas baking, runtime binding. |
 | [`bevy-voxel-pipeline`](skills/bevy-voxel-pipeline/SKILL.md) | `block-mesh-rs` integration, greedy quads, threading on `AsyncComputeTaskPool`. |
-| [`bevy-voxel-data`](skills/bevy-voxel-data/SKILL.md) | RON block catalog, palette by `BlockId`, KTX2 atlas baking, runtime binding. |
+| [`bevy-capture`](skills/bevy-capture/SKILL.md) | Record cameras to MP4 (`Mp4Openh264Encoder`, ffmpeg-CLI) or PNG sequences (`FramesEncoder`). |
 | [`bevy-fluent`](skills/bevy-fluent/SKILL.md) | `es-fluent-manager-bevy` i18n: `FluentText<T>`, `BevyFluentText`, `LocaleChangeEvent`, `i18n.toml`. |
 | [`bevy-ui`](skills/bevy-ui/SKILL.md) | `Node`, `Button`, `Interaction`, `children![]`, `TextFont`, `InputFocus`, `BorderRadius`, `BackgroundColor`. |
 | [`similarity-rs`](skills/similarity-rs/SKILL.md) | Detect copy-paste and near-duplicate Rust code before committing. `--cross-file`, `--threshold`, CI recipes. |
 
-More skills (server, networking, animation, UI, rendering deep dives) ship in subsequent phases.
+More skills (server, networking, animation, rendering deep dives) ship in subsequent phases.
 
 ## Quick reference — smallest valid Bevy 0.18 app
 
