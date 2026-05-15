@@ -44,7 +44,7 @@ the tile size.
 |---|---|---|---|
 | 2048 × 2048 | 32 × 32 | 4096 tiles (64×64) | **3136 tiles** (56×56, stride 36) |
 | 2048 × 2048 | 64 × 64 | 1024 tiles (32×32) | 900 tiles (30×30, stride 68) |
-| 4096 × 4096 | 32 × 32 | 16 384 tiles (128×128) | 12 996 tiles (113×113, stride 36) |
+| 4096 × 4096 | 32 × 32 | 16 384 tiles (128×128) | 12 769 tiles (113×113, stride 36) |
 
 Padding is strongly recommended for mip safety (see next section). At 32 × 32
 with 2 px padding, `floor(2048 / 36) = 56` tiles fit per row, giving

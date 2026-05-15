@@ -83,7 +83,8 @@ All four fields are `Option<String>` with `#[serde(default)]`.
 | `side`   | `-X`, `-Z`, `+X`, `+Z` (slots 0, 2, 3, 5) |
 | `all`    | Fallback when a specific key is absent. |
 
-Resolution priority per face: specific key → `side` (horizontal faces) → `all` → tile 0.
+Resolution priority — **horizontal faces** (`side` slots 0, 2, 3, 5): specific key → `side` → `all` → tile 0.
+Resolution priority — **vertical faces** (`top` slot 4, `bottom` slot 1): specific key → `all` → tile 0 (`side` is not a fallback for vertical faces).
 
 ---
 
