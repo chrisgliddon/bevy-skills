@@ -43,7 +43,7 @@ python3 skills/bevy-porting/scripts/unity/scene_inventory.py \
   /path/to/Assets/Scenes/Main.unity --out scene.json
 ```
 
-The script parses the `.unity` YAML and emits a JSON array of `{ name, type, fileID, components[] }` for every `GameObject`. Run it again after export on the glTF side to diff what was dropped (lights, particle systems, audio sources, custom scripts — all non-transferable). This diff is your porting checklist.
+The script parses the `.unity` YAML and emits a JSON object `{ "scene": "Main.unity", "gameobjects": [ { "file_id": "...", "name": "...", ... } ] }` for every `GameObject`. Run it before and after export to diff what was dropped (lights, particle systems, audio sources, custom scripts — all non-transferable). This diff is your porting checklist.
 
 ## Bones and `Name` — Mecanim Humanoid rig gotcha
 
