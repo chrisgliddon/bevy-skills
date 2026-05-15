@@ -25,6 +25,8 @@ uses stdlib 're' to extract fields — no pyyaml required.
 Exit codes: 0 = success, 1 = file not found / parse error.
 """
 
+from __future__ import annotations  # PEP 604 union syntax on Python 3.9
+
 import argparse
 import json
 import re

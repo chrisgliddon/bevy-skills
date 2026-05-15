@@ -45,6 +45,8 @@ stdlib-only: uses 're', 'os', 'pathlib', 'json', 'argparse'. No pyyaml.
 Exit codes: 0 = success, 1 = path not found / not a directory.
 """
 
+from __future__ import annotations  # PEP 604 union syntax on Python 3.9
+
 import argparse
 import json
 import os
