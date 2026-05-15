@@ -77,7 +77,7 @@ impl ChunkFlat {
 **Properties:**
 - O(1) random access, O(1) modification.
 - Dense memory: 32³ × 2 bytes = 65 536 bytes = 64 KB per chunk.
-- No compression. At 36-chunk render distance this is ~7 GB RAM for 8-bit types.
+- No compression. At 36-chunk render distance this is ~15 GB RAM for u16 (2-byte) types, or ~7 GB for u8 (1-byte) types.
 - Disk format requires a separate serialization step.
 
 **When it's right:** small worlds, high per-block modification rate, ample RAM,

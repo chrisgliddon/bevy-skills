@@ -86,8 +86,8 @@ Sample noise every 2nd / 4th / 8th voxel and trilinearly interpolate the gaps.
 More upsampling = slightly less terrain detail, but 4× looks "surprisingly good"
 per the benchmark author.
 
-**Math:** for a 32³ chunk at 4× upsampling you sample noise 9³ = 729 times
-instead of 32³ = 32768. That's 45× fewer calls — but you don't get 45× speedup
+**Math:** for a 64³ chunk at 4× upsampling you sample noise 17³ = 4 913 times
+instead of 64³ = 262 144. That's ~53× fewer calls — but you don't get 53× speedup
 because trilinear interpolation has non-trivial per-voxel cost.
 
 ### Benchmark table (3D noise, 64³ chunk)

@@ -27,7 +27,7 @@ connects these crates to `AsyncComputeTaskPool` chunk tasks.
 |-------|--------|-------|
 | [`ndshape`](https://crates.io/crates/ndshape) | Active | Flat-array indexing helpers (XYZ ↔ linear index) for fixed-size voxel chunks. Pairs naturally with `block-mesh-rs`. |
 | [`building-blocks`](https://crates.io/crates/building-blocks) | **ARCHIVED** | Formerly the most complete Rust voxel library (chunk management, LOD, SDFs, octrees). Archived by the author (bonsairobo). **Do not depend on new projects.** |
-| [`feldspar`](https://github.com/bonsairobo/feldspar) | Intended successor to `building-blocks` — check activity status before depending on it. As of the source document it was under active rethinking. | |
+| [`feldspar`](https://github.com/bonsairobo/feldspar) | Experimental | Intended successor to `building-blocks` — check activity status before depending on it. As of the source document it was under active rethinking. |
 | `nanovdb` (C++ FFI) | No mature pure-Rust binding | OpenVDB / NanoVDB requires C++ FFI. Build complexity; no pure-Rust equivalent with equivalent production polish. |
 
 **Ecosystem gap:** no widely-adopted Rust crate implements palette compression
