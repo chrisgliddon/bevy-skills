@@ -97,7 +97,7 @@ If you use a **texture array** instead of a 2D atlas (one slice per tile),
 configure the sampler to `clamp_to_edge` per slice to eliminate bleeding:
 
 ```rust
-use bevy::render::texture::{ImageAddressMode, ImageSamplerDescriptor};
+use bevy::render::texture::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
 
 // Set on the Image before it reaches the GPU:
 image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {

@@ -125,7 +125,10 @@ tile_id    = 0
 
 ATLAS_CAPACITY = ATLAS_COLS * ATLAS_COLS   # 3136 slots for this config
 
+OUTPUT_PNG = Path("assets/blocks_atlas.png")
 for src_path in sorted(Path("assets").rglob("*.png")):
+    if src_path == OUTPUT_PNG:
+        continue
     if tile_id >= ATLAS_CAPACITY:
         raise OverflowError(
             f"Atlas full: {tile_id} tiles exceeds capacity {ATLAS_CAPACITY}. "
