@@ -152,10 +152,14 @@ def lint_file(path: Path) -> LintResult:
             res.errors.append(
                 f"description length {len(desc)} outside 1..{MAX_DESCRIPTION_LEN}"
             )
-        if REQUIRED_VERSION_TOKEN not in desc:
+        md = fm.get("metadata") or {}
+        expected_pin = md.get("target_version") if isinstance(md, dict) else None
+        if not isinstance(expected_pin, str) or not expected_pin:
+            expected_pin = REQUIRED_VERSION_TOKEN  # "Bevy 0.18"
+        if expected_pin not in desc:
             res.errors.append(
-                f"description must contain literal {REQUIRED_VERSION_TOKEN!r} "
-                "(version-pinning rule)"
+                f"description must contain literal {expected_pin!r} "
+                "(version-pinning rule; set metadata.target_version to override)"
             )
         if desc.lower().startswith("use this skill"):
             res.warnings.append(
