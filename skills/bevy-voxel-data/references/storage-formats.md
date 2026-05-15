@@ -176,6 +176,10 @@ struct PaletteChunk {
 
 impl PaletteChunk {
     fn get(&self, x: usize, y: usize, z: usize) -> u16 {
+        // Fast path: single-type palette — no data array (spec: "1 type → no data needed").
+        if self.palette.len() == 1 {
+            return self.palette[0];
+        }
         let linear = x + z * 16 + y * 256;
         let bits = self.bits as usize;
         let indices_per_word = 64 / bits;
