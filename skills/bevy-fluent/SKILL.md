@@ -17,39 +17,34 @@ metadata:
 - Defining typed UI messages with `#[derive(EsFluent)]` and `#[derive(BevyFluentText)]`.
 - Wrapping a UI text entity with `FluentText<T>` for automatic locale-driven refresh.
 - Switching locales at runtime via `LocaleChangeEvent`.
-- Reading the current locale from `RequestedLanguageId` or `ActiveLanguageId`.
-- Checking startup failures through `I18nPluginStartupError`.
+- Reading the current locale from `RequestedLanguageId`.
 
-## Canonical pattern
+## Canonical pattern — 5-file minimum shape
 
 `Cargo.toml`:
 
 ```toml
 [dependencies]
-bevy = "0.18"
-es-fluent = { version = "0.15", features = ["derive"] }
+bevy                   = "0.18"
+es-fluent              = { version = "0.15", features = ["derive"] }
 es-fluent-manager-bevy = { version = "0.18", features = ["macros"] }
-unic-langid = "0.9"
+unic-langid            = "0.9"
 ```
 
-`i18n.toml` (crate root, read at compile time by `define_i18n_module!()`):
+`i18n.toml` (crate root, read at compile time):
 
 ```toml
 fallback_language = "en"
 assets_dir = "assets/locales"
 ```
 
-`src/i18n.rs` — module file holding the compile-time discovery macro:
+`src/i18n.rs`:
 
 ```rust
-// Reads i18n.toml at compile time, discovers asset languages, emits metadata.
 es_fluent_manager_bevy::define_i18n_module!();
 ```
 
-`src/lib.rs` — **required** so the macro module and every `BevyFluentText` /
-`EsFluent`-derived type live in the library target. `cargo es-fluent generate`
-discovers types by walking the lib's module tree; anything declared only in
-`src/main.rs` is invisible to the CLI.
+`src/lib.rs` — **message types must live here** (see Gotchas):
 
 ```rust
 use bevy::prelude::*;
@@ -61,30 +56,18 @@ use unic_langid::langid;
 
 pub mod i18n;
 
-// EsFluent      → typed Fluent key lookup (message ID derived from variant name).
-// BevyFluentText → registers locale-refresh systems with I18nPlugin via inventory.
-#[derive(BevyFluentText, Clone, EsFluent)]
+#[derive(BevyFluentText, Clone, EsFluent, Component)]
 #[fluent(namespace = "ui")]
-pub enum UiMessage {
-    StartGame,
-    Settings,
-    QuitGame,
-}
+pub enum UiMessage { StartGame, Settings, QuitGame }
 
 pub fn build_i18n_plugin() -> I18nPlugin {
-    // Loads .ftl files from assets/locales/<lang>/*.ftl
     I18nPlugin::with_language(langid!("en"))
 }
 
 pub fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2d);
-
-    // Pair FluentText<T> with Text::new("") — the plugin fills in the
-    // translated string when bundles load and on every LocaleChangedEvent.
-    commands.spawn((
-        FluentText::new(UiMessage::StartGame),
-        Text::new(""),
-    ));
+    // FluentText<T> writes translations into a sibling Text component.
+    commands.spawn((FluentText::new(UiMessage::StartGame), Text::new("")));
 }
 
 pub fn switch_locale_on_keypress(
@@ -93,19 +76,13 @@ pub fn switch_locale_on_keypress(
     mut locale_events: MessageWriter<LocaleChangeEvent>,
 ) {
     if keys.just_pressed(KeyCode::KeyL) {
-        let next = if requested.0.to_string() == "en" {
-            langid!("fr")
-        } else {
-            langid!("en")
-        };
-        // LocaleChangeEvent requests a switch; LocaleChangedEvent fires once
-        // the new locale's bundles are ready.
+        let next = if requested.0.to_string() == "en" { langid!("fr") } else { langid!("en") };
         locale_events.write(LocaleChangeEvent(next));
     }
 }
 ```
 
-`src/main.rs` — thin binary entry point that pulls everything from the lib:
+`src/main.rs` — thin binary entry point:
 
 ```rust
 use bevy::prelude::*;
@@ -121,35 +98,49 @@ fn main() {
 }
 ```
 
-Replace `my_game` with your package name (the `name` field in `Cargo.toml`). Cargo implicitly links `src/lib.rs` into the binary when they share a package, which is what wires the `inventory` registrations into the running app.
+Replace `my_game` with your package name (hyphens become underscores). The full
+walkthrough — including the lib-vs-binary rationale, package-name placeholder,
+and pure-binary-crate workarounds — is in
+[references/lib-target-layout.md](references/lib-target-layout.md).
 
-### Custom asset path
+## Topics
 
-```rust
-use es_fluent_manager_bevy::{I18nPlugin, I18nPluginConfig};
-use unic_langid::langid;
-
-// When translations live in assets/i18n instead of assets/locales:
-I18nPlugin::with_config(
-    I18nPluginConfig::new(langid!("en")).with_asset_path("i18n"),
-);
-```
+| Topic | Reference |
+|-------|-----------|
+| Why types must live in the lib target; `cargo es-fluent generate` invisibility footgun; full layout | [references/lib-target-layout.md](references/lib-target-layout.md) |
+| `BevyFluentText` derive vs `FluentText<T>` component; `Component` bound; `Text::new("")` | [references/components.md](references/components.md) |
+| `LocaleChangeEvent` (request) vs `LocaleChangedEvent` (confirmation); `RequestedLanguageId`; Messages vs Events | [references/locale-events.md](references/locale-events.md) |
+| `i18n.toml` full schema, `assets_dir`, `I18nPluginConfig` runtime override | [references/i18n-toml.md](references/i18n-toml.md) |
+| `generate`, `watch`, `check`, `clean`, `sync`, `tree`, `format` — dev and CI workflows | [references/cli.md](references/cli.md) |
+| rustc 1.95+ requirement; `rust-toolchain.toml` pin; failure modes on older toolchains | [references/toolchain.md](references/toolchain.md) |
 
 ## Gotchas
 
-- **`BevyFluentText` vs `EsFluent` are separate derives.** `EsFluent` makes a type a typed Fluent message. `BevyFluentText` registers it with `I18nPlugin` for automatic `FluentText<T>` refresh. You need both on types used in UI.
-- **`define_i18n_module!()` reads `i18n.toml` at compile time.** Place `i18n.toml` in the crate root. Missing or malformed config is a compile error, not a runtime panic.
-- **Put `define_i18n_module!()` in a file that is part of the library target** — i.e., `src/lib.rs` directly, or a module declared from it (e.g. `pub mod i18n;` in `src/lib.rs` with `define_i18n_module!()` in `src/i18n.rs`). Placing it only in the binary target (`src/main.rs` or any module only reachable from there) hides registered types from `cargo es-fluent generate`. The same rule applies to every `BevyFluentText` / `EsFluent`-derived type — keep them in the lib, expose them to the binary via `use my_game::*;`.
-- **`FluentText<T>` needs a sibling `Text::new("")`** on the same entity (or a child). The plugin writes the localized string into the Bevy `Text` component.
-- **Events are Messages.** Use `MessageWriter<LocaleChangeEvent>` and `MessageReader<LocaleChangedEvent>` — not `EventWriter`/`EventReader` (renamed in Bevy 0.17).
-- **`I18nPluginStartupError`** is a resource inserted when setup fails (invalid config, duplicate registration). Check for it in a startup system to handle graceful degradation.
-- **`macros` feature required** for `BevyFluentText` and `define_i18n_module!()`. The default feature set enables it; opt out only with `default-features = false`.
-- **`es-fluent` CLI** (`cargo es-fluent generate|watch|check|clean|sync|tree|format`) operates on the library target. Install via `cargo install es-fluent-cli` and run from the crate root alongside `i18n.toml`.
-- **`BevyI18n` system param** (imperative localization) exists in the GitHub source but is **not exported in crates.io `0.18.12`**. If you need imperative lookup in a system, query `I18nBundle` and `I18nResource` directly, or wait for a later release.
-- **`BevyFluentText` is a derive macro, not a component.** It registers refresh systems with `I18nPlugin` via `inventory`. The component that wraps UI text is `FluentText<T>`. The message enum `T` still needs `#[derive(Component)]` because `es-fluent-manager-bevy`'s `FluentTextRegistration::register_fluent_text` is bounded `T: ToFluentString + Clone + Component + Send + Sync + 'static` — `T` is stored inside `FluentText<T>` but the inventory machinery treats it as an ECS component for its own bookkeeping.
-- **Minimum rustc version: 1.95.** `es-fluent` 0.15.x uses language features stabilized in Rust 1.95. Older toolchains fail with cryptic trait-resolution errors. Pin via `rust-toolchain.toml` at the crate root (`[toolchain]` / `channel = "1.95"`), or run `cargo +1.95 check` ad-hoc.
+1. **`cargo es-fluent generate` only sees the lib target.** Message enums
+   declared only in `src/main.rs` are invisible to the CLI and produce empty
+   `.ftl` output with no error. Move every `BevyFluentText` / `EsFluent`-derived
+   type to `src/lib.rs` (or a module reachable from it). See
+   [references/lib-target-layout.md](references/lib-target-layout.md).
+
+2. **`BevyFluentText` is a derive macro; `FluentText<T>` is the component.** The
+   derive registers refresh systems via `inventory`. The component is what you
+   spawn on UI entities. Your message enum `T` must also derive `Component`
+   because `FluentTextRegistration::register_fluent_text` requires
+   `T: ToFluentString + Clone + Component + Send + Sync + 'static`. Missing
+   `Component` gives a confusing trait-bound error. See
+   [references/components.md](references/components.md).
+
+3. **Minimum rustc 1.95.** Older toolchains fail with cryptic trait-resolution
+   errors that do not mention the version requirement. Pin with
+   `rust-toolchain.toml` (`[toolchain]` / `channel = "1.95"`). See
+   [references/toolchain.md](references/toolchain.md).
+
+4. **Events are Messages.** Use `MessageWriter<LocaleChangeEvent>` and
+   `MessageReader<LocaleChangedEvent>` — not `EventWriter`/`EventReader`
+   (renamed in Bevy 0.17). See [references/locale-events.md](references/locale-events.md).
 
 ## See also
 
-- `bevy-assets` — how Bevy's `AssetServer` loads `.ftl` files; relevant to `watch_for_changes_override` for hot-reload during development.
-- `bevy-ecs-components` — `#[derive(Component)]` patterns; `FluentText<T>` is itself a Bevy component and must be combined with ECS entity spawning.
+- `bevy-ui` — `FluentText<T>` is used alongside `Text`, `Node`, and `Button`.
+- `bevy-ecs-components` — `#[derive(Component)]` patterns required by `FluentText<T>`.
+- `bevy-assets` — how Bevy's `AssetServer` loads `.ftl` files; relevant for hot-reload.
