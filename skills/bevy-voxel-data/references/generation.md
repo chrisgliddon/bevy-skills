@@ -218,7 +218,9 @@ vectorisation is more aggressive than what scalar loop-hoisting achieves.
 - [`fastnoise2-rs`](https://crates.io/crates/fastnoise2-rs) — bindings to
   FastNoise2, SIMD-accelerated, generates arrays in one call.
 - [`fastnoise-lite`](https://crates.io/crates/fastnoise-lite) — lightweight
-  alternative, also supports array generation.
+  single-point evaluator (no SIMD, no bulk array fill). Simpler to integrate
+  than `fastnoise2-rs` but must be called per-voxel in a loop; does not share
+  the bulk-generation performance characteristics of FastNoise2.
 
 Contrast with `noise-rs` (ergonomic, per-point, not SIMD) or `bracket-noise`
 (FastNoise port, roguelike ecosystem).
