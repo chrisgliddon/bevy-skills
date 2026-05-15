@@ -28,6 +28,18 @@ When upstream publishes a Bevy 0.18 release, drop the patch and pin a new versio
 
 ## Canonical pattern
 
+```toml
+# Cargo.toml
+[dependencies]
+bevy = "0.18"
+# Pick the features for the encoders you use; FramesEncoder needs none.
+bevy_capture = { version = "0.4.1", features = ["mp4_openh264"] }
+
+# Required until bevy_capture ships a native 0.18 release — see references/bevy-0-18-patch.md
+[patch.crates-io]
+bevy_capture = { path = "vendor/bevy_capture" }  # local fork with the 3 patches applied
+```
+
 ```rust
 use bevy::prelude::*;
 use bevy_capture::{

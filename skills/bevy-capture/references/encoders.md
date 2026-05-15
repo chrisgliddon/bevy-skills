@@ -50,7 +50,7 @@ Writes one PNG per rendered frame into a specified output directory. No video en
 
 **Construction:** `FramesEncoder::new(dir_path)`. The directory is created at first frame; no `Result`.
 
-**Pros:** Lossless; the only encoder that works in WASM (writes to the virtual FS or through JS interop); zero system dependencies; trivial to debug — you can open frame N in any viewer.
+**Pros:** Lossless; zero system dependencies; trivial to debug — you can open frame N in any viewer. **Note on WASM:** `FramesEncoder` is the only encoder that compiles for `wasm32-unknown-unknown`, but writing frames requires JS interop or a virtual FS (e.g. Emscripten) — there is no out-of-the-box filesystem in a browser WASM context. See `bevy-wasm-webgpu` for the full WASM build path.
 **Cons:** Large output (3–10× MP4 for the same content); must be assembled into video separately.
 
 ## Choosing in practice
