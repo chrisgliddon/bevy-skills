@@ -70,27 +70,32 @@ It mirrors the Unity Input System's action-map model with a Bevy-native API.
 
 ## Gamepad
 
-```rust
-use bevy::input::gamepad::{GamepadAxis, GamepadButton, GamepadConnectionEvent};
+In Bevy 0.18, `Gamepad` is a **component** on an `Entity` (spawned automatically on connection).
+`GamepadAxis` and `GamepadButton` are plain enums with direct variants — there are no `::new()`
+constructors and no separate `GamepadAxisType`/`GamepadButtonType` enums.
 
-fn gamepad_system(
-    axes:    Res<Axis<GamepadAxis>>,
-    buttons: Res<ButtonInput<GamepadButton>>,
-) {
-    // Left stick X — equivalent to Gamepad.current.leftStick.ReadValue().x
-    if let Some(x) = axes.get(GamepadAxis::new(Gamepad::new(0), GamepadAxisType::LeftStickX)) {
-        let _ = x; // -1.0 … 1.0
-    }
-    if buttons.just_pressed(GamepadButton::new(Gamepad::new(0), GamepadButtonType::South)) {
-        // A / Cross pressed
+```rust
+use bevy::input::gamepad::{Gamepad, GamepadAxis, GamepadButton, GamepadConnectionEvent};
+
+// Query the Gamepad component — one entity per connected controller.
+fn gamepad_system(gamepads: Query<(Entity, &Gamepad)>) {
+    for (entity, gamepad) in &gamepads {
+        // Left stick X — equivalent to Gamepad.current.leftStick.ReadValue().x
+        if let Some(x) = gamepad.get(GamepadAxis::LeftStickX) {
+            let _ = x; // -1.0 … 1.0
+        }
+        // A / Cross — equivalent to Gamepad.current.buttonSouth.wasPressedThisFrame
+        if gamepad.just_pressed(GamepadButton::South) {
+            info!("{entity:?}: South pressed");
+        }
     }
 }
 
 fn on_gamepad_connect(mut events: EventReader<GamepadConnectionEvent>) {
     for ev in events.read() {
         match &ev.connection {
-            bevy::input::gamepad::GamepadConnection::Connected(info) => {
-                println!("Connected: {}", info.name);
+            bevy::input::gamepad::GamepadConnection::Connected { name, .. } => {
+                println!("Connected: {}", name);
             }
             bevy::input::gamepad::GamepadConnection::Disconnected => {
                 println!("Disconnected: {:?}", ev.gamepad);
@@ -100,8 +105,9 @@ fn on_gamepad_connect(mut events: EventReader<GamepadConnectionEvent>) {
 }
 ```
 
-Unity has `Gamepad.current` (implicit selection). Bevy uses explicit `Gamepad::new(id)`;
-track the active gamepad yourself via `GamepadConnectionEvent`.
+Unity has `Gamepad.current` (implicit selection). Bevy has no "current" gamepad concept —
+iterate `Query<(Entity, &Gamepad)>` and track which entity is "active" yourself, e.g. by
+storing the `Entity` in a `Resource` when the first `GamepadConnectionEvent` fires.
 
 ## Touch & mobile
 

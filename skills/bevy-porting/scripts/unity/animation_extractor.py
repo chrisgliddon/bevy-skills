@@ -35,6 +35,11 @@ Curve data lives under AnimationClip (class 74):
   m_FloatCurves     -> list of {path, attribute, curve.m_Curve[{time, value}]}
   m_EulerCurves     -> list of {path, curve.m_Curve[{time, value{x,y,z}}]}
 
+Known limitation: m_CompressedRotationCurves (Unity's "Optimal" compression format,
+which stores packed integer quaternions) is NOT supported. If output is missing rotation
+tracks, disable rotation compression in Unity's Animation Import Settings ("Off") and
+re-export.
+
 This script uses stdlib 're' only — no pyyaml required.
 
 Exit codes: 0 = success, 1 = file not found / parse error.

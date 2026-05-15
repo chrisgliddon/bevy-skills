@@ -158,6 +158,13 @@ Feed each track's `keyframes` array into `AnimatableKeyframeCurve::new([...])`, 
 in `AnimatableCurve::new(animated_field!(Transform::translation), curve)`, and attach it
 to an `AnimationClip` via `clip.add_curve_to_target(target_id, curve)`.
 
+**Known limitation — `m_CompressedRotationCurves` not supported:** Unity's Mecanim
+compression format stores rotations as packed integers in `m_CompressedRotationCurves`
+blocks. The extractor cannot decode these; it only handles the uncompressed
+`m_RotationCurves` (quaternion) and `m_EulerCurves` (Euler) blocks. If your `.anim`
+files were baked with "Optimal" rotation compression in Unity's Animation Import
+Settings, disable compression ("Off") and re-bake before running the extractor.
+
 ## See also
 
 - [`../SKILL.md`](../SKILL.md) — bevy-porting dispatcher
