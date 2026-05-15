@@ -61,8 +61,8 @@ OpenCode reads `~/.claude/skills/` natively — no duplication needed if both ag
 | [`bevy-ui`](skills/bevy-ui/SKILL.md) | Reach for this when building UI. `Node`+`children![]` model, `Interaction` (frame-0 safe), `InputFocus`, `BorderRadius`. |
 | **Platform / specialization** | |
 | [`bevy-wasm-webgpu`](skills/bevy-wasm-webgpu/SKILL.md) | Read before shipping to the web. WASM build pipeline, WebGL2 vs WebGPU, `default-features = false` trim strategy. |
-| [`bevy-voxel-pipeline`](skills/bevy-voxel-pipeline/SKILL.md) | Reach for this when meshing voxels. `block-mesh-rs`, greedy quads, off-thread meshing on `AsyncComputeTaskPool`. |
 | [`bevy-voxel-data`](skills/bevy-voxel-data/SKILL.md) | Read before `bevy-voxel-pipeline`. Covers the data side: RON block catalog, `BlockId` palette, KTX2 atlas baking. |
+| [`bevy-voxel-pipeline`](skills/bevy-voxel-pipeline/SKILL.md) | Reach for this when meshing voxels. `block-mesh-rs`, greedy quads, off-thread meshing on `AsyncComputeTaskPool`. |
 
 More skills (server, networking, animation, rendering deep dives) ship in subsequent phases.
 
