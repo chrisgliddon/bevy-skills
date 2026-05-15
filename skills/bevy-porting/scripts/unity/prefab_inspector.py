@@ -34,7 +34,7 @@ from pathlib import Path
 # Unity class-ID → component name (extend as needed)
 CLASS_ID_NAMES = {
     "1": "GameObject",
-    "2": "Camera",
+    "2": "EditorExtension",  # base class — NOT Camera; Camera is class ID 20
     "4": "Transform",
     "20": "Camera",
     "23": "MeshRenderer",
@@ -146,6 +146,7 @@ def _build_tree(
     go_file_id: str,
     go_by_id: dict,
     transform_by_go: dict,
+    transform_to_go: dict,  # inverse of transform_by_go — O(1) child→GO lookup
     children_by_transform: dict,
     depth: int | None,
     current_depth: int = 0,
@@ -163,21 +164,17 @@ def _build_tree(
     transform_fid = transform_by_go.get(go_file_id)
     child_transforms = children_by_transform.get(transform_fid, []) if transform_fid else []
 
-    # Map transform children back to GameObjects
+    # Map transform children back to GameObjects using pre-built inverse index
     children = []
     for child_t_fid in child_transforms:
-        # Find GO that owns this transform
-        child_go_fid = None
-        for go_fid, t_fid in transform_by_go.items():
-            if t_fid == child_t_fid:
-                child_go_fid = go_fid
-                break
+        child_go_fid = transform_to_go.get(child_t_fid)
         if child_go_fid:
             children.append(
                 _build_tree(
                     child_go_fid,
                     go_by_id,
                     transform_by_go,
+                    transform_to_go,
                     children_by_transform,
                     depth,
                     current_depth + 1,
@@ -256,8 +253,11 @@ def parse_prefab(path: Path, depth: int | None) -> dict:
 
     root_file_id = root_fids[0] if root_fids else None
 
+    # Build inverse map: transform_file_id -> go_file_id for O(1) child lookups
+    transform_to_go: dict[str, str] = {t: g for g, t in transform_by_go.items()}
+
     hierarchy = [
-        _build_tree(fid, go_by_id, transform_by_go, children_by_transform, depth)
+        _build_tree(fid, go_by_id, transform_by_go, transform_to_go, children_by_transform, depth)
         for fid in root_fids
     ]
 

@@ -49,7 +49,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 CLASS_ID_NAMES = {
     "1": "GameObject",
-    "2": "Camera",
+    "2": "EditorExtension",  # base class — NOT Camera; Camera is class ID 20
     "4": "Transform",
     "20": "Camera",
     "23": "MeshRenderer",

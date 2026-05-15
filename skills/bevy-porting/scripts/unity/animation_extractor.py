@@ -248,9 +248,6 @@ def _parse_curve_group(body: str, section_key: str, bevy_property: str,
 
     # Split into per-path entries (each starts with '- curve:' after path)
     # Unity format: each entry starts with a list item containing 'path:' and 'curve:'
-    # We split on entries that begin with '  - curve:' preceded by a path
-    entry_pattern = re.compile(r"(?=^\s+-\s+curve:)", re.MULTILINE)
-    # Alternative: split on '  - curve:' anchors
     raw_entries = re.split(r"(?=^\s+- curve:)", section_text, flags=re.MULTILINE)
 
     tracks = []

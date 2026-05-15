@@ -73,17 +73,20 @@ Unity's **Spatial Blend** slider and rolloff curves have no direct equivalent. B
 
 ## AudioMixer / groups (workaround)
 
+`PlaybackSettings` is consumed at spawn time — **do not mutate it on already-playing entities**.
+Control live volume via `AudioSink` (mono) or `SpatialAudioSink` (3-D):
+
 ```rust
 #[derive(Component)] struct MusicTag;
 #[derive(Component)] struct SfxTag;
 
 fn apply_volume(
     settings: Res<UserAudioSettings>,
-    mut music: Query<&mut PlaybackSettings, With<MusicTag>>,
-    mut sfx:   Query<&mut PlaybackSettings, With<SfxTag>>,
+    music: Query<&AudioSink, With<MusicTag>>,
+    sfx:   Query<&AudioSink, With<SfxTag>>,
 ) {
-    for mut s in &mut music { s.volume = bevy::audio::Volume::new(settings.music_volume); }
-    for mut s in &mut sfx   { s.volume = bevy::audio::Volume::new(settings.sfx_volume); }
+    for sink in &music { sink.set_volume(settings.music_volume); }
+    for sink in &sfx   { sink.set_volume(settings.sfx_volume); }
 }
 ```
 
@@ -91,19 +94,19 @@ For a full mixer graph with sends, buses, and effects, consider **`bevy_kira_aud
 
 ## Adaptive music / crossfades
 
-Bevy core has no crossfade primitive. Implement with two `AudioPlayer` entities and a system that lerps volumes:
+Bevy core has no crossfade primitive. Implement with two `AudioPlayer` entities and a system that lerps volumes via `AudioSink::set_volume`:
 
 ```rust
 fn crossfade(
     time: Res<Time>,
     mut state: ResMut<CrossfadeState>,
-    mut query: Query<(&MusicTrackId, &mut PlaybackSettings)>,
+    query: Query<(&MusicTrackId, &AudioSink)>,
 ) {
     state.t = (state.t + time.delta_secs() / state.duration).min(1.0);
     let t = state.t;
-    for (id, mut s) in &mut query {
+    for (id, sink) in &query {
         let target = if id.0 == state.target { t } else { 1.0 - t };
-        s.volume = bevy::audio::Volume::new(target);
+        sink.set_volume(target);
     }
 }
 ```
@@ -115,7 +118,7 @@ See [`bevy-animation/references/curves-and-tweening.md`](../../bevy-animation/re
 - **`AudioSource` naming collision.** `bevy::audio::AudioSource` is an asset (loaded from disk). The playback component is `AudioPlayer`. Searching for `AudioSource` in autocomplete will find the wrong type.
 - **Spatial audio requires `Transform` on the emitter entity.** Without `Transform`, `SpatialListener` distance calculations produce silent output.
 - **`SpatialListener` is optional.** If no entity has `SpatialListener`, Bevy falls back to the primary camera's transform. Attach `SpatialListener` explicitly for VR / split-screen setups.
-- **No rolloff curves.** Bevy 0.18 uses inverse-distance only. Custom falloff = user system writing `PlaybackSettings::volume`.
+- **No rolloff curves.** Bevy 0.18 uses inverse-distance only. Custom falloff = user system reading listener distance and calling `AudioSink::set_volume()` each frame.
 - **`PlaybackSettings::DESPAWN` removes the entity.** Do not hold a strong `Handle<AudioSource>` only in the entity's `AudioPlayer` if you rely on the asset staying loaded — keep a copy elsewhere.
 
 ## See also
