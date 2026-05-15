@@ -82,6 +82,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 fn drive_capture(
     mut q: Query<&mut Capture>,
     mut started: Local<bool>,
+    mut stopped: Local<bool>,
     mut frame: Local<u32>,
 ) {
     let Ok(mut capture) = q.single_mut() else { return };
@@ -118,7 +119,10 @@ fn drive_capture(
     *frame += 1;
 
     // ③ Stop flushes the encoder (calls `Encoder::finish` on drop).
-    if *frame >= 300 {
+    //    Guard with `stopped` so `capture.stop()` is called only once —
+    //    repeated calls may double-flush a pipe or panic.
+    if *frame >= 300 && !*stopped {
+        *stopped = true;
         capture.stop();
     }
 }
