@@ -85,8 +85,8 @@ fn apply_volume(
     music: Query<&AudioSink, With<MusicTag>>,
     sfx:   Query<&AudioSink, With<SfxTag>>,
 ) {
-    for sink in &music { sink.set_volume(settings.music_volume); }
-    for sink in &sfx   { sink.set_volume(settings.sfx_volume); }
+    for sink in &music { sink.set_volume(bevy::audio::Volume::new(settings.music_volume)); }
+    for sink in &sfx   { sink.set_volume(bevy::audio::Volume::new(settings.sfx_volume)); }
 }
 ```
 
@@ -106,7 +106,7 @@ fn crossfade(
     let t = state.t;
     for (id, sink) in &query {
         let target = if id.0 == state.target { t } else { 1.0 - t };
-        sink.set_volume(target);
+        sink.set_volume(bevy::audio::Volume::new(target));
     }
 }
 ```
@@ -118,7 +118,7 @@ See [`bevy-animation/references/curves-and-tweening.md`](../../bevy-animation/re
 - **`AudioSource` naming collision.** `bevy::audio::AudioSource` is an asset (loaded from disk). The playback component is `AudioPlayer`. Searching for `AudioSource` in autocomplete will find the wrong type.
 - **Spatial audio requires `Transform` on the emitter entity.** Without `Transform`, `SpatialListener` distance calculations produce silent output.
 - **`SpatialListener` is optional.** If no entity has `SpatialListener`, Bevy falls back to the primary camera's transform. Attach `SpatialListener` explicitly for VR / split-screen setups.
-- **No rolloff curves.** Bevy 0.18 uses inverse-distance only. Custom falloff = user system reading listener distance and calling `AudioSink::set_volume()` each frame.
+- **No rolloff curves.** Bevy 0.18 uses inverse-distance only. Custom falloff = user system reading listener distance and calling `AudioSink::set_volume(Volume::new(…))` each frame.
 - **`PlaybackSettings::DESPAWN` removes the entity.** Do not hold a strong `Handle<AudioSource>` only in the entity's `AudioPlayer` if you rely on the asset staying loaded — keep a copy elsewhere.
 
 ## See also
