@@ -17,6 +17,9 @@ metadata:
 - Building a runtime palette keyed by `BlockId` (`u16`/`u32`) for fast lookup during meshing.
 - Packing per-block textures into a single atlas so all chunks can share one material.
 - Switching the atlas to KTX2 for GPU-friendly compressed delivery.
+- Choosing a runtime chunk storage format (flat array, RLE, palette compression, hybrid).
+- Optimising procedural world generation: extremity bound checking, noise upsampling, noise caching, cross-biome noise sharing.
+- Surveying the Rust/Bevy voxel-crate ecosystem and its current gaps before reaching for a dependency.
 
 ## Canonical end-to-end flow
 
@@ -72,6 +75,9 @@ per-vertex UVs as `tile_x = tile_index % atlas_cols` during the meshing pass.
 | `BlockDef` / `BlockFaces` / `Visibility` types, `build_palette` in full, `face_tiles` slot convention | [references/palette.md](references/palette.md) |
 | KTX2 packing, tile-size budgets, padding for mip safety, BC7/ETC2/ASTC per platform | [references/ktx2-atlas.md](references/ktx2-atlas.md) |
 | `StandardMaterial` binding, UV formula, per-vertex emission, sampler config, alpha modes | [references/atlas-binding.md](references/atlas-binding.md) |
+| Runtime chunk storage formats — flat array, RLE, palette compression, hybrid — with RAM estimates | [references/storage-formats.md](references/storage-formats.md) |
+| Procedural generation patterns — noise upsampling, biome sharing, extremity bounds, caching | [references/generation.md](references/generation.md) |
+| Rust/Bevy voxel-crate ecosystem survey (`block-mesh`, `building-blocks`, `feldspar`, …) | [references/ecosystem.md](references/ecosystem.md) |
 
 ## Gotchas
 
