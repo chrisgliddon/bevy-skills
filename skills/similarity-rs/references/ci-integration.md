@@ -71,7 +71,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/bin/similarity-rs
-          key: ${{ runner.os }}-similarity-rs-v0.5.0
+          key: ${{ runner.os }}-similarity-rs-0.5.0
 
       - name: Install similarity-rs
         run: |
