@@ -93,7 +93,7 @@ a `Vec` rather than a dense array.
 
 ```rust
 #[derive(Clone, Copy)]
-struct Run { voxel: u16, len: u8 }
+struct Run { voxel: u16, len: u16 }
 
 struct ChunkColumn {
     runs: Vec<Run>,     // sorted bottom → top

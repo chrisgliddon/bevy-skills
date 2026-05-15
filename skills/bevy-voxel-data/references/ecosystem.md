@@ -42,12 +42,13 @@ for the full format description.
 | Crate | Notes |
 |-------|-------|
 | [`fastnoise2-rs`](https://crates.io/crates/fastnoise2-rs) | Bindings to FastNoise2. SIMD-accelerated; generates entire arrays of noise values in a single call rather than one point at a time. Preferred for bulk chunk generation. |
-| [`fastnoise-lite`](https://crates.io/crates/fastnoise-lite) | Lightweight alternative; also supports array-at-a-time generation. |
+| [`fastnoise-lite`](https://crates.io/crates/fastnoise-lite) | Lightweight single-point evaluator (no SIMD, no bulk array fill). Easier to integrate than `fastnoise2-rs` but must be called per-voxel in a loop; does not share the bulk-generation performance characteristics of FastNoise2. |
 | [`noise-rs`](https://crates.io/crates/noise) | Pure-Rust noise functions. Ergonomic API, good documentation, **not SIMD**. Use for quick prototyping or when SIMD dependencies are a concern. |
 | [`bracket-noise`](https://crates.io/crates/bracket-noise) | Port of FastNoise; used in the bracket-lib roguelike ecosystem. Fine for roguelikes, not tuned for voxel bulk generation. |
 
-For bulk chunk generation, prefer `fastnoise2-rs` or `fastnoise-lite`. They
-sidestep the manual loop-hoisting maintenance burden by vectorising internally.
+For bulk chunk generation, prefer `fastnoise2-rs`; it sidesteps the manual
+loop-hoisting maintenance burden by vectorising internally. Use `fastnoise-lite`
+when simplicity matters more than throughput — it evaluates one point at a time.
 See [generation](generation.md) §4 for context.
 
 ---
@@ -82,7 +83,7 @@ are the valuable part.
 
 ### Sodium — Minecraft renderer rewrite
 - **Repo:** https://github.com/CaffeineMC/sodium
-- **License:** MIT
+- **License:** Polyform Shield 1.0.0 (source-available, non-competing; **not MIT**)
 - **Language:** Java
 - **Why read it:** The single highest-leverage study resource for a Bevy voxel
   developer. Key techniques: batched chunk rendering via large shared VBO
