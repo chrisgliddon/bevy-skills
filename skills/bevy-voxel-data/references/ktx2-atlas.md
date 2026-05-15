@@ -147,7 +147,7 @@ for src_path in sorted(Path("assets").rglob("*.png")):
     # Paste the STRIDE×STRIDE padded block; origin = (col*STRIDE, row*STRIDE)
     # because PADDING is already baked into the block.
     atlas.paste(padded, (col * STRIDE, row * STRIDE))
-    index[str(src_path)] = tile_id
+    index[str(src_path.relative_to("assets"))] = tile_id
     tile_id += 1
 
 atlas.save("assets/blocks_atlas.png")
