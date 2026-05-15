@@ -111,10 +111,18 @@ python3 skills/bevy-porting/scripts/unity/asset_audit.py \
 
 The output JSON has the shape:
 ```json
-{ "guid": { "path": "Assets/Textures/hero.png", "type": "Texture2D" }, ... }
+{
+  "root": "Assets/",
+  "totals": { "files": 1234, "bytes": 56789012, "by_type": { "Texture2D": 200, ... } },
+  "assets": [
+    { "path": "Assets/Textures/hero.png", "guid": "abc123...", "type": "Texture2D", "bytes": 12345 }
+  ]
+}
 ```
 
-Cross-reference this against your new `assets/` tree during the port to spot missing or renamed files early.
+With `--graph`, each asset entry also includes `"depends_on": ["guid1", ...]`.
+
+Cross-reference the `assets` array against your new `assets/` tree during the port to spot missing or renamed files early.
 
 ## See also
 

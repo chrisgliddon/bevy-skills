@@ -139,20 +139,27 @@ python3 skills/bevy-porting/scripts/unity/animation_extractor.py \
   --out walk.json
 ```
 
-Output shape — one entry per animated track:
+Output shape (`--format bevy-keyframes`, the default):
 
 ```json
-[
-  {
-    "target_path": ["Hips"],
-    "property": "translation",
-    "keyframes": [
-      { "time": 0.0, "value": [0.0, 0.94, 0.0] },
-      { "time": 0.5, "value": [0.0, 0.95, 0.0] }
-    ]
-  }
-]
+{
+  "clip": "Walk.anim",
+  "tracks": [
+    {
+      "path": "Armature/Hips",
+      "property": "Transform.translation",
+      "keyframes": [
+        [0.0, [0.0, 0.94, 0.0]],
+        [0.5, [0.0, 0.95, 0.0]]
+      ]
+    }
+  ]
+}
 ```
+
+Each keyframe is a `[time, value]` two-element array. `path` is a flat string (the bone
+path), not an array. `property` uses dotted Bevy naming (`Transform.translation`,
+`Transform.rotation`, etc.).
 
 Feed each track's `keyframes` array into `AnimatableKeyframeCurve::new([...])`, wrap it
 in `AnimatableCurve::new(animated_field!(Transform::translation), curve)`, and attach it

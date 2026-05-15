@@ -69,7 +69,7 @@ commands.spawn((
 ));
 ```
 
-Unity's **Spatial Blend** slider and rolloff curves have no direct equivalent. Bevy uses inverse-distance falloff, scaled by `SpatialScale`. There is no built-in arbitrary rolloff curve. To replicate Unity's custom curves, write a system that reads listener distance and mutates `PlaybackSettings::volume` each frame.
+Unity's **Spatial Blend** slider and rolloff curves have no direct equivalent. Bevy uses inverse-distance falloff, scaled by `SpatialScale`. There is no built-in arbitrary rolloff curve. To replicate Unity's custom curves, write a system that reads listener distance and calls `sink.set_volume(bevy::audio::Volume::new(computed))` on the entity's `SpatialAudioSink` each frame.
 
 ## AudioMixer / groups (workaround)
 
