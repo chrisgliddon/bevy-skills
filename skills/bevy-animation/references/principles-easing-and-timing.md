@@ -15,7 +15,8 @@ move at constant speed. "Slow in" = easing into a move; "slow out" = easing out 
 `EasingCurve` applies these shapes in Bevy without any authored keyframe density.
 
 ```rust
-use bevy::{math::curve::EasingCurve, prelude::*};
+use bevy::math::curve::{EasingCurve, EaseFunction};
+use bevy::prelude::*;
 use bevy::math::cubic_splines::CubicSegment;
 
 // Standard ease-in-out: starts slow, peaks, ends slow.
