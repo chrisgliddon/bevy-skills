@@ -19,12 +19,14 @@ struct Velocity(Vec3);
 struct PreviousTranslation(Vec3);
 
 fn integrate_physics(
+    time: Res<Time<Fixed>>,
     mut query: Query<(&mut Transform, &mut PreviousTranslation, &Velocity)>,
 ) {
     // Runs in FixedUpdate — discrete physics step
+    let dt = time.delta_secs();
     for (mut tf, mut prev, vel) in &mut query {
         prev.0 = tf.translation;
-        tf.translation += vel.0 * (1.0 / 64.0); // fixed timestep
+        tf.translation += vel.0 * dt;
     }
 }
 
@@ -34,8 +36,9 @@ fn smooth_render(
 ) {
     // Runs in Update — interpolates between two FixedUpdate ticks
     let alpha = time.overstep_fraction();
+    let dt = time.delta_secs();
     for (mut tf, prev, vel) in &mut query {
-        let next = prev.0 + vel.0 * (1.0 / 64.0);
+        let next = prev.0 + vel.0 * dt;
         tf.translation = prev.0.lerp(next, alpha);
     }
 }

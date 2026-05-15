@@ -24,7 +24,7 @@ To make a clip node animate *only* the face group, set all bits except face's bi
 const FACE_GROUP: u32 = 0;
 // Bit 0 clear = face IS animated by this node.
 // All other bits set = all other groups are excluded from this node.
-const FACE_ONLY_MASK: u64 = !0u64 ^ (1 << FACE_GROUP); // = 0xFFFF_FFFF_FFFF_FFFE
+const FACE_ONLY_MASK: u64 = !(1u64 << FACE_GROUP); // = 0xFFFF_FFFF_FFFF_FFFE
 
 let mut graph = AnimationGraph::new();
 let root = graph.root;
@@ -42,12 +42,6 @@ let _emote_node = graph.add_clip_with_mask(
     root,
 );
 ```
-
-> **TODO(verify mask polarity):** The tester example shows `MASK_GROUP_0_BIT = 1 << 0`
-> used as a mask to *exclude* group 0. The inverse `!FACE_MASK_BIT` above follows the
-> documented polarity (bit N set = exclude group N), but the exact complement to
-> "isolate only face" should be validated against a live character rig. When in doubt,
-> test both polarities on a visible joint.
 
 **Staging tip:** pair masking with `AnimationTransitions::play` so the emote fades in
 smoothly without disturbing the body's locomotion layer.

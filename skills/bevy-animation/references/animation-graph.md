@@ -27,8 +27,10 @@ fn build_graph(
     // Additive subtree: an Add node at weight 0.5, then a masked clip beneath it
     let additive_node = graph.add_additive_blend(0.5, root);
 
-    const UPPER_BODY_BIT: u64 = 1 << 0; // bit 0 = mask group 0
-    let _emote_node = graph.add_clip_with_mask(emote, UPPER_BODY_BIT, 1.0, additive_node);
+    // Bit 0 = mask group 0.  Register LOWER-body bones into group 0 so this
+    // node excludes them, leaving the emote to animate the upper body only.
+    const LOWER_BODY_BIT: u64 = 1 << 0; // bit N set → group N is excluded
+    let _emote_node = graph.add_clip_with_mask(emote, LOWER_BODY_BIT, 1.0, additive_node);
 
     let graph_handle = graphs.add(graph);
 
@@ -47,7 +49,7 @@ fn build_graph(
 root (Blend)
 ├── walk_node   (clip, weight=1.0, mask=0b00)
 └── additive_node (Add, weight=0.5)
-    └── emote_node  (clip, weight=1.0, mask=0b01 — excludes group 0)
+    └── emote_node  (clip, weight=1.0, mask=0b01 — excludes lower-body group 0)
 ```
 
 Weights compose multiplicatively as the graph evaluates from root downward. An `Add` node's output is _added_ to its sibling contributions rather than blended. A `Blend` node (the root) averages its children weighted by their node weight.

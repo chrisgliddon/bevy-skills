@@ -110,10 +110,9 @@ transition duration only to control blend smoothness between clips.
 - **Linear interpolation has no ease.** `AnimatableKeyframeCurve` interpolates
   linearly between samples by default. Wrap values in `EasingCurve` or add denser
   keyframes to fake non-linear motion.
-- **`EaseFunction` is not in the animation prelude.** Import from
-  `bevy::math::curve::EasingCurve` and use `EaseFunction` (re-exported via
-  `bevy::prelude` through `bevy_math`, so it *is* available via `use bevy::prelude::*`
-  — but `EasingCurve` itself is in `bevy::math::curve`).
+- **`EaseFunction` and `EasingCurve` are not in `bevy::prelude`.** Import both
+  explicitly from `bevy::math::curve`:
+  `use bevy::math::curve::{EasingCurve, EaseFunction};`
 - **`CubicSegment::new_bezier_easing` is in `bevy::math::cubic_splines`**, not in
   the animation module. Add that import explicitly.
 - **Transition duration ≠ anticipation.** A long `Duration` in
