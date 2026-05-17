@@ -23,18 +23,16 @@ metadata:
 
 | Engine | Coverage | Scripts |
 |---|---|---|
-| **Unity** | Deep (8 subsystem refs) — see § Unity below | 4 Python extractors in `scripts/unity/` |
-| Unreal Engine 5 | _coming in PR B_ | — |
-| Godot 4 | _coming in PR B_ | — |
-| Cocos Creator | _coming in PR B_ | — |
-| Vanilla JavaScript / Canvas / HTML5 | _coming in PR B_ | — |
-| Phaser 3 | _coming in PR B_ | — |
-| Flash / SWF | _coming in PR B_ | — |
-| Defold | _coming in PR B_ | — |
-| Roblox | _coming in PR B_ | — |
-| GameMaker Studio 2 | _coming in PR B_ | — |
-
-PR B (already planned) will ship the nine non-Unity engines and fill in this table.
+| **Unity** | Deep (8 subsystem refs) — see § Unity below | 4 Python extractors in [`scripts/unity/`](scripts/unity/) |
+| Unreal Engine 5 | [references/unreal.md](references/unreal.md) — Actor/Component → ECS, UMG → bevy_ui, Niagara/animation gaps | [`scripts/unreal/ue5_python_export.py`](scripts/unreal/ue5_python_export.py) (drops into UE5 editor) |
+| Godot 4 | [references/godot.md](references/godot.md) — node-tree → ECS, `.tscn` text format, GDScript → Rust | [`scripts/godot/tscn_inventory.py`](scripts/godot/tscn_inventory.py) (stdlib, no Godot needed) |
+| Cocos Creator 3 | [references/cocos.md](references/cocos.md) — TypeScript node-tree → ECS, JSON `.scene`/`.prefab` | inline Python recipe in the reference |
+| Vanilla JavaScript / Canvas / HTML5 | [references/javascript.md](references/javascript.md) — class+rAF loops → ECS systems, Canvas 2D → `Sprite` | — (port is a rewrite, not extraction) |
+| Phaser 3 | [references/phaser.md](references/phaser.md) — Scene/preload/update → systems, Arcade physics, tweens | — |
+| Flash / SWF | [references/flash-swf.md](references/flash-swf.md) — `ffdec`-based extraction, AS3 → Rust rewrite | [`scripts/flash/swf_assets.py`](scripts/flash/swf_assets.py) (requires `ffdec` on PATH) |
+| Defold | [references/defold.md](references/defold.md) — message-passing → Bevy `Message`s, Lua → Rust, 2D-first | inline Python recipe in the reference |
+| Roblox | [references/roblox.md](references/roblox.md) — Instance tree → ECS, asset-ID extraction, Luau → Rust | [`scripts/roblox/rbxlx_inventory.py`](scripts/roblox/rbxlx_inventory.py) (XML `.rbxlx` only) |
+| GameMaker Studio 2 | [references/gamemaker.md](references/gamemaker.md) — Object events → systems, JSON project files | [`scripts/gamemaker/gms2_inventory.py`](scripts/gamemaker/gms2_inventory.py) (stdlib, walks `.yyp`) |
 
 ## Unity (priority)
 
