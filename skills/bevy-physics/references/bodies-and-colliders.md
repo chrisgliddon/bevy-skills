@@ -1,5 +1,8 @@
 # Bodies, colliders, and transform authority
 
+Target: **Bevy 0.20 / bevy_rapier 0.37.0**. Source-reviewed; Rust compile/runtime
+checks remain pending in the [readiness record](../../bevy/references/bevy-020-readiness.md).
+
 ## Rigid-body choice
 
 | Type | Authority and behavior |
@@ -56,8 +59,8 @@ explicitly when that would distort gameplay.
   blindly enabling full CCD everywhere.
 - `LockedAxes` removes unwanted degrees of freedom for 2.5D or upright actors.
 - `Damping` is drag, not a substitute for stable constraints or correct units.
-- `AdditionalSolverIterations` targets difficult bodies/joint islands without raising
-  the global solver cost.
+- `AdditionalSolverIterations` adds substeps to the whole connected island, not just
+  one body. `AdditionalPgsIterations` instead adds PGS iterations within each substep.
 
 Physics behaves best near real-world scales. Pick a documented unit convention early,
 scale gravity/forces consistently, and test the smallest, largest, fastest, and

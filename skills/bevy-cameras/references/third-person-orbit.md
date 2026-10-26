@@ -1,5 +1,9 @@
 # Third-person orbit camera
 
+This reference remains pinned to **Bevy 0.19 / Rapier 0.36**. Before adapting it to
+0.20, read the [Rapier migration checklist](../../bevy-physics/references/rapier-036-to-037.md)
+and validate the camera/query behavior; this file is not a 0.20-tested example.
+
 Separate the **follow target**, **pivot**, **orientation**, **boom distance**, and
 **camera pose**. Collapsing them into one transform makes shoulder offsets,
 obstruction, aim, smoothing, and actor fading fight one another.

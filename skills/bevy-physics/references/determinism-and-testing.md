@@ -1,5 +1,8 @@
 # Determinism, networking, testing, and performance
 
+Target: **Bevy 0.20 / bevy_rapier 0.37.0**. Source-reviewed; Rust compile/runtime
+checks remain pending in the [readiness record](../../bevy/references/bevy-020-readiness.md).
+
 ## Fixed timestep is necessary, not sufficient
 
 A fixed `dt` removes frame-rate variation from stepping. It does not by itself make a
@@ -13,9 +16,11 @@ whole game deterministic across machines or replays. Results can still depend on
 - sleeping, contacts, solver settings, and restored internal state.
 
 Rapier's `enhanced-determinism` feature improves cross-platform deterministic math; it
-is not a guarantee for the surrounding Bevy application. Rapier 0.36 does not support
+is not a guarantee for the surrounding Bevy application. Rapier 0.37 does not support
 combining it with `simd8`. Pin the engine, plugin, compiler/toolchain, features, tick
-rate, units, and relevant configuration for any deterministic protocol.
+rate, units, and relevant configuration for any deterministic protocol. The 0.37
+changelog reports the earlier `enhanced-determinism` compile failure fixed; that is
+upstream evidence, not a local compile result for this collection.
 
 ## Networking and rollback
 
@@ -40,7 +45,9 @@ rebuild runtime handles/links.
 
 For deterministic regression tests:
 
-1. Build with a lean Bevy/Rapier profile and `MinimalPlugins`.
+1. Build with the [lean profile](setup-and-scheduling.md), `MinimalPlugins`, and
+   `TransformPlugin` (not included in `MinimalPlugins`). Do not enable the removed
+   `headless` feature.
 2. Insert a known fixed clock and `TimestepMode::Fixed` before adding Rapier.
 3. Spawn a tiny named scene from constants, not render assets.
 4. Advance an exact number of ticks with exact tick-indexed inputs.
@@ -76,6 +83,6 @@ overlays distort timings and should be measured separately.
 ## Sources
 
 - [Rapier determinism guide](https://rapier.rs/docs/user_guides/rust/determinism/)
-- [`TimestepMode`](https://docs.rs/bevy_rapier3d/0.36.0/bevy_rapier3d/plugin/configuration/enum.TimestepMode.html)
-- [`RapierConfiguration`](https://docs.rs/bevy_rapier3d/0.36.0/bevy_rapier3d/plugin/configuration/struct.RapierConfiguration.html)
+- [`TimestepMode`](https://docs.rs/bevy_rapier3d/0.37.0/bevy_rapier3d/plugin/configuration/enum.TimestepMode.html)
+- [`RapierConfiguration`](https://docs.rs/bevy_rapier3d/0.37.0/bevy_rapier3d/plugin/configuration/struct.RapierConfiguration.html)
 - [Rapier performance considerations](https://rapier.rs/docs/user_guides/rust/common_mistakes/)

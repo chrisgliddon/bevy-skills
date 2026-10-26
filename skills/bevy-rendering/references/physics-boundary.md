@@ -1,5 +1,9 @@
 # Physics is not rendering
 
+This reference remains **Bevy 0.19 / Rapier 0.36** guidance. For Bevy 0.20, use
+the [updated physics setup](../../bevy-physics/references/setup-and-scheduling.md):
+Rapier 0.37 removes the old `headless` feature. Do not mix the dependency pairs.
+
 `bevy_rapier3d` owns collision detection, rigid-body integration, joints, queries, and
 optional debug visualization. It does not shade meshes or replace Bevy's renderer.
 

@@ -1,5 +1,8 @@
 # Character controllers and joints
 
+Target: **Bevy 0.20 / bevy_rapier 0.37.0**. Source-reviewed; Rust compile/runtime
+checks remain pending in the [readiness record](../../bevy/references/bevy-020-readiness.md).
+
 ## Choose character authority first
 
 | Character model | Use when |
@@ -59,8 +62,12 @@ fn consume_motion(outputs: Query<&KinematicCharacterControllerOutput>) {
 Set `translation` before `PhysicsSet::SyncBackend`; consume output after writeback.
 Derive requested displacement from the selected physics `dt`, not render-frame delta.
 The built-in controller does not support rotational movement and is intentionally a
-generic base. Copy/customize or use `RapierContext::move_shape` when filtering and
-game-specific movement require more control.
+generic base. In 0.37, first consider `exclude_colliders`, `exclude_rigid_bodies`,
+`filter_predicate`, or the `ControllerIgnored` marker for filtering. Copy/customize
+or use `RapierContextMut::move_shape` when game-specific movement requires more
+control; pass `QueryFilter` in place of the former mutable query pipeline and preserve
+the collision callback.
+Retain `..default()` in controller literals to initialize the new fields.
 
 Grounded output is evidence about the resolved request, not a permanent state. Test
 slopes, stair edges, ceilings, moving platforms, corners, crouch/shape changes, large
@@ -88,8 +95,10 @@ fn hinge(commands: &mut Commands, parent: Entity, child: Entity) {
 
 `MultibodyJoint` is efficient for articulation trees but cannot form closed loops.
 Joint anchors are local to their endpoint bodies. Test limits and motors under maximum
-load; use `AdditionalSolverIterations` selectively for difficult islands before
-raising global cost.
+load; use `AdditionalSolverIterations` selectively for extra island substeps, or
+`AdditionalPgsIterations` for extra PGS iterations per substep, before raising global
+cost. The entire connected island pays that cost. Joint `user_data` is now owned by
+the binding and overwritten with the entity; keep application IDs in ECS components.
 
 ## Sources
 
