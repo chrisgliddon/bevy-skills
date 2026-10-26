@@ -1,10 +1,25 @@
-# GitHub Copilot — Bevy 0.19
+# GitHub Copilot — version-aware Bevy guidance
 
 Copilot does not load Agent Skills directly. This file mirrors the key rules so Copilot users in this repo still benefit.
 
-## When writing Bevy code
+## Choose the project version first
 
-1. **Bevy 0.19 only.** Do not suggest older APIs except while explaining a migration. Specifically:
+Read `skills/bevy/SKILL.md`, the relevant manifest/workspace dependencies, and the
+lockfile. General implementation skills still target Bevy 0.19. The staged 0.20
+slice covers `skills/bevy-migration-0-19-to-0-20/` and `skills/bevy-physics/`
+(Rapier 0.37); it does not certify the rest of the collection for 0.20.
+
+- For 0.19 physics, use `skills/bevy-physics/references/bevy-019-compatibility.md`
+  and the pinned Rapier 0.36 baseline linked there.
+- For 0.20, verify/adapt other 0.19 examples against official 0.20 APIs; a cross-link
+  is not compatibility evidence. See `docs/bevy-020-readiness.md` for remaining gates.
+- For 0.17/0.18, use the matching historical migration hop. If the manifest is
+  missing, inherited, mixed, or unsupported, resolve it and ask if still ambiguous.
+
+## When writing Bevy 0.19 baseline code
+
+1. **Keep the version pin honest.** Do not apply these rules blindly to another
+   target or silently relabel an example as 0.20. For the 0.19 baseline:
    - Events use `MessageWriter` / `MessageReader` (not the older
      `EventWriter` / `EventReader`; double-check the migration skills when
      reviewing stale code).
@@ -41,6 +56,7 @@ Read `CLAUDE.md`. The frontmatter rules, lint script, and tester-crate workflow 
 | Components & required components | `skills/bevy-ecs-components/` |
 | Queries & filters | `skills/bevy-ecs-queries/` |
 | Systems, sets, run conditions | `skills/bevy-ecs-systems/` |
+| 0.19 → 0.20 breaks / dependency gates | `skills/bevy-migration-0-19-to-0-20/` |
 | 0.18 → 0.19 breaks | `skills/bevy-migration-0-18-to-0-19/` |
 | 0.17 → 0.18 breaks | `skills/bevy-migration-0-17-to-0-18/` |
 | Assets & custom loaders | `skills/bevy-assets/`, `skills/bevy-custom-assets/` |
@@ -50,7 +66,7 @@ Read `CLAUDE.md`. The frontmatter rules, lint script, and tester-crate workflow 
 | PBR / materials | `skills/bevy-pbr-materials/` |
 | Renderer selection / custom passes | `skills/bevy-rendering/` |
 | Diagnostics / tracing / render profiling | `skills/bevy-diagnostics-profiling/` |
-| Physics / Rapier / collision queries | `skills/bevy-physics/` |
+| Bevy 0.20 physics / Rapier 0.37 / collision queries | `skills/bevy-physics/` |
 | Game accessibility / adaptive controllers | `skills/bevy-a11y/` |
 | Audio / sinks / spatial / mixing | `skills/bevy-audio/` |
 | Voxel data, meshing, and production runtime | `skills/bevy-voxel-data/`, `skills/bevy-voxel-pipeline/`, `skills/bevy-voxel-runtime/` |

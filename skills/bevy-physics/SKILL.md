@@ -1,15 +1,21 @@
 ---
 name: bevy-physics
-description: Use when adding `RapierPhysicsPlugin`, spawning `RigidBody`/`Collider`, reading `CollisionEvent`, querying with `ReadRapierContext`, configuring `KinematicCharacterController`, or ordering gameplay around `PhysicsSet` in Bevy 0.19.
+description: Use when adding `RapierPhysicsPlugin`, spawning `RigidBody`/`Collider`, reading `CollisionEvent`, querying with `ReadRapierContext`, configuring `KinematicCharacterController`, or ordering gameplay around `PhysicsSet` in Bevy 0.20 with bevy_rapier 0.37; includes the preserved Bevy 0.19 compatibility path.
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:
   tier: "2"
   area: physics
-  bevy_version: "0.19"
+  bevy_version: "0.20"
+  target_version: "Bevy 0.20"
 ---
 
-# Bevy 0.19 — physics with Rapier
+# Bevy 0.20 — physics with Rapier 0.37
+
+**Staged update:** APIs and features below were reviewed against the published
+0.37.0 source; local Rust compilation/runtime validation is still pending. See
+[validation gates](../bevy/references/bevy-020-readiness.md). For an existing Bevy 0.19
+project, use the [preserved 0.19 / Rapier 0.36 path](references/bevy-019-compatibility.md).
 
 ## When to use this skill
 
@@ -19,18 +25,19 @@ metadata:
 - Read collision messages or perform ray, shape, point, and overlap queries.
 - Configure headless physics, interpolation, CCD, collision groups, or tests.
 
-Bevy core does not include a physics engine. For Bevy 0.19, use
-`bevy_rapier2d`/`bevy_rapier3d 0.36` for the mature Rapier integration. Consider
-`avian2d`/`avian3d 0.7` when its ECS-native architecture or modular solver is the
-specific reason to choose it. Do not install both engines on the same simulated
-entities.
+Bevy core does not include a physics engine. The published
+`bevy_rapier2d`/`bevy_rapier3d 0.37.0` depend on Bevy `^0.20`; no Git branch or fork
+is needed. These binding versions are distinct from the underlying `rapier3d`
+engine version. Do not carry the old Avian 0.7 recommendation into a 0.20 project
+without checking its declared Bevy dependency. Do not install both engines on the
+same simulated entities.
 
 ## Canonical fixed-step Rapier 3D pattern
 
 ```toml
 [dependencies]
-bevy = "0.19"
-bevy_rapier3d = "0.36"
+bevy = "0.20"
+bevy_rapier3d = "0.37"
 ```
 
 ```rust
@@ -129,7 +136,7 @@ intent; order systems in that same schedule.
 | Kinematic character motion, controller output, joints | [Controllers and joints](references/controllers-and-joints.md) |
 | Rollback, determinism limits, headless tests, performance evidence | [Determinism and testing](references/determinism-and-testing.md) |
 
-## Bevy 0.19 / Rapier 0.36 gotchas
+## Bevy 0.20 / Rapier 0.37 gotchas
 
 - `Velocity` fields are `linear` and `angular`, not `linvel` and `angvel`.
 - `CollisionEvent` and `ContactForceEvent` are messages. At least one collider must
@@ -142,11 +149,19 @@ intent; order systems in that same schedule.
   themselves. Use scene queries or `KinematicCharacterController`.
 - Rapier's default Cargo features pull Bevy asset/render helpers. Disable defaults for
   headless or external-renderer builds and enable the correct `dim2`/`dim3` feature.
+- The unused `headless` Cargo feature was removed in 0.37; remove it from manifests.
+- Query predicates and intersection callbacks now receive the entity **and** a
+  `&RapierCollider`. Review custom hooks and group modes in the
+  [0.36→0.37 migration notes](references/rapier-036-to-037.md).
 - `RapierDebugRenderPlugin` is diagnostic visualization, not a renderer or a shipping
   requirement.
 
 ## See also
 
+- [Rapier 0.36→0.37](references/rapier-036-to-037.md) — required API/feature checks.
+- [`bevy-migration-0-19-to-0-20`](../bevy-migration-0-19-to-0-20/SKILL.md) — engine migration.
+- Other sibling implementation skills below remain pinned to **Bevy 0.19**; their
+  project-level patterns are useful, but their snippets are not 0.20 certification.
 - [`bevy-core-concepts`](../bevy-core-concepts/SKILL.md) — fixed schedules and ordering.
 - [`bevy-rendering`](../bevy-rendering/SKILL.md) — rendering and physics ownership boundary.
 - [`bevy-cameras`](../bevy-cameras/SKILL.md) — camera rays for picking and aiming.

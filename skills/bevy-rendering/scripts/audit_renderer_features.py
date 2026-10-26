@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -35,6 +36,33 @@ def details(value: Any) -> tuple[bool, set[str], bool]:
     return True, features, defaults
 
 
+def declared_minor(value: Any) -> tuple[int, int] | None:
+    """Recognize only simple registry requirements confined to a 0.x minor.
+
+    This is not a Cargo resolver. Ranges, prereleases, workspace inheritance,
+    git/path sources and renamed dependencies need resolved Cargo metadata.
+    """
+    if isinstance(value, dict):
+        if any(key in value for key in ("workspace", "git", "path", "package")):
+            return None
+        value = value.get("version")
+    if not isinstance(value, str):
+        return None
+    match = re.fullmatch(r"[\^~=]?\s*0\.([1-9][0-9]*)(?:\.[0-9]+)?", value.strip())
+    return (0, int(match.group(1))) if match else None
+
+
+def declaration_scopes(data: dict[str, Any], name: str) -> list[str]:
+    """Locate direct declarations without combining Cargo dependency scopes."""
+    kinds = ("dependencies", "dev-dependencies", "build-dependencies")
+    scopes = [kind for kind in kinds if name in data.get(kind, {})]
+    for target, tables in data.get("target", {}).items():
+        scopes.extend(
+            f"target.{target}.{kind}" for kind in kinds if name in tables.get(kind, {})
+        )
+    return scopes
+
+
 def audit(manifest: Path) -> dict[str, Any]:
     data = tomllib.loads(manifest.read_text(encoding="utf-8"))
     deps: dict[str, Any] = {}
@@ -43,10 +71,10 @@ def audit(manifest: Path) -> dict[str, Any]:
     deps.update(data.get("build-dependencies", {}))
     deps["target"] = data.get("target", {})
 
-    bevy_present, bevy_features, bevy_defaults = details(dependency(deps, "bevy"))
-    rapier_present, rapier_features, rapier_defaults = details(
-        dependency(deps, "bevy_rapier3d")
-    )
+    bevy = dependency(deps, "bevy")
+    rapier = dependency(deps, "bevy_rapier3d")
+    bevy_present, bevy_features, bevy_defaults = details(bevy)
+    rapier_present, rapier_features, rapier_defaults = details(rapier)
     errors: list[str] = []
     warnings: list[str] = []
     notes: list[str] = []
@@ -70,6 +98,29 @@ def audit(manifest: Path) -> dict[str, Any]:
             notes.append("Rendering profiles no longer imply `audio`; this is correct only if audio is intentionally absent or external.")
 
     if rapier_present:
+        rapier_minor = declared_minor(rapier)
+        bevy_minor = declared_minor(bevy)
+        bevy_scopes = declaration_scopes(data, "bevy")
+        rapier_scopes = declaration_scopes(data, "bevy_rapier3d")
+        unambiguous_pair = len(bevy_scopes) == 1 and bevy_scopes == rapier_scopes
+        if bevy_present and not unambiguous_pair:
+            warnings.append(
+                "Bevy/Rapier version pairing is ambiguous across dependency scopes; "
+                "compatibility was not checked. Inspect resolved Cargo metadata for "
+                "the intended target and dependency kind."
+            )
+        matching_bevy = {(0, 36): (0, 19), (0, 37): (0, 20)}
+        if rapier_minor not in matching_bevy:
+            warnings.append(
+                "Rapier version-specific checks cover only simple registry requirements "
+                "for 0.36 and 0.37; verify the resolved version/features with Cargo metadata."
+            )
+        elif unambiguous_pair and bevy_minor is not None and bevy_minor != matching_bevy[rapier_minor]:
+            expected = matching_bevy[rapier_minor][1]
+            errors.append(
+                f"`bevy_rapier3d` 0.{rapier_minor[1]} requires Bevy 0.{expected}, "
+                f"but the manifest declares Bevy 0.{bevy_minor[1]}."
+            )
         if rapier_defaults and bevy_present and not bevy_defaults:
             warnings.append(
                 "Rapier defaults enable Bevy debug rendering/picking/mesh helpers and may defeat a headless or external-renderer profile."
@@ -77,7 +128,21 @@ def audit(manifest: Path) -> dict[str, Any]:
         if not rapier_defaults and "dim3" not in rapier_features:
             errors.append("`bevy_rapier3d` with defaults disabled must enable its `dim3` feature.")
         if "headless" in rapier_features:
-            notes.append("Rapier headless mode detected; physics remains independent of renderer selection.")
+            if rapier_minor == (0, 37):
+                errors.append(
+                    "`bevy_rapier3d` 0.37 removed the `headless` feature; disable defaults "
+                    "and enable `dim3` for a renderer-independent build."
+                )
+            elif rapier_minor == (0, 36):
+                notes.append(
+                    "Rapier 0.36's `headless` feature is an unused legacy marker; "
+                    "disabling default features removes renderer-facing helpers."
+                )
+            else:
+                warnings.append(
+                    "Cannot validate `headless` for this Rapier requirement; it was "
+                    "removed in 0.37. Check the resolved crate's feature list."
+                )
 
     return {
         "manifest": str(manifest),
