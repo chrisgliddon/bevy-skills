@@ -1,4 +1,4 @@
-# bevy-porting — GameMaker Studio 2 → Bevy 0.18
+# bevy-porting — GameMaker Studio 2 → Bevy 0.20
 
 > Referenced from `bevy-porting/SKILL.md § Engine coverage`.
 
@@ -6,7 +6,7 @@ GameMaker Studio 2 (GMS2) organises content into Objects (with event-driven code
 
 ## Object events → Bevy systems
 
-| GMS2 event | Bevy 0.18 |
+| GMS2 event | Bevy 0.20 |
 |---|---|
 | Create | `Startup` system, or an `Added<C>` observer on first spawn |
 | Step | `Update` system |
@@ -14,7 +14,7 @@ GameMaker Studio 2 (GMS2) organises content into Objects (with event-driven code
 | End Step | `PostUpdate` system |
 | Draw | Bevy renders automatically; spawn `Mesh2d` entities for custom draw |
 | Destroy | `On<Remove<C>>` observer, or detect `RemovedComponents<C>` in a system |
-| Collision | `bevy_rapier2d` `CollisionEvent` reader |
+| Collision | `bevy_rapier2d` `CollisionEvent` via `MessageReader` |
 | Alarm[n] | `Timer` component + a system that fires on expiry |
 
 ```rust
@@ -46,7 +46,7 @@ fn spawn_enemy(mut commands: Commands, x: f32, y: f32) {
 
 ## GML idioms → Rust
 
-| GML | Bevy 0.18 |
+| GML | Bevy 0.20 |
 |---|---|
 | `global.score` | `#[derive(Resource)] struct Score(pub i32)` |
 | `with(obj_enemy) { ... }` | `Query<&mut Enemy>` + iterate |
@@ -88,13 +88,13 @@ fn advance_frames(mut query: Query<(&mut FrameTimer, &mut Sprite)>, time: Res<Ti
 GMS2 rooms are 2D scenes with layers (Background, Instance, Tile, Asset, etc.). Bevy equivalents:
 
 - **Spawn function** — a `Startup` (or state-enter) system that spawns room contents; cleanest approach.
-- **`DynamicScene`** — serialisable ECS snapshot; useful if you need round-trippable room state.
+- **`DynamicWorld`** (`bevy::world_serialization`, formerly `DynamicScene`) — serialisable ECS snapshot; useful if you need round-trippable room state. `bsn!` templates are the code-first alternative.
 
 Use `scripts/gamemaker/gms2_inventory.py` to list all instances in a room before writing the spawn function.
 
 ## Tilesets
 
-GMS2 tilesets → **`bevy_ecs_tilemap`** (community crate). Import the tileset image as a `Handle<Image>` and reconstruct tile layout in Bevy coordinates. Note that GMS2 uses a top-left origin; Bevy 2D uses bottom-left by default — flip Y when converting tile positions.
+GMS2 tilesets → **`bevy_ecs_tilemap`** (community crate; 0.20 targets Bevy 0.20). Import the tileset image as a `Handle<Image>` and reconstruct tile layout in Bevy coordinates. Note that GMS2 uses a top-left origin; Bevy 2D uses bottom-left by default — flip Y when converting tile positions.
 
 ## Input
 
@@ -112,7 +112,7 @@ fn read_input(input: Res<ButtonInput<KeyCode>>, mut query: Query<&mut Velocity, 
 ```rust
 // GMS2: audio_play_sound(snd_jump, 10, false)
 commands.spawn((
-    AudioPlayer(asset_server.load("sounds/jump.ogg")),
+    AudioPlayer::new(asset_server.load("sounds/jump.ogg")), // ::new pins Source = AudioSource
     PlaybackSettings::DESPAWN,
 ));
 ```
@@ -130,7 +130,7 @@ Output groups resources by type (GMObject, GMSprite, GMRoom, GMSound, GMScript, 
 
 ## Build / publish
 
-| GMS2 | Bevy 0.18 |
+| GMS2 | Bevy 0.20 |
 |---|---|
 | Windows/macOS/Linux (IDE export) | `cargo build --release --target <triple>` |
 | HTML5 export | `wasm32-unknown-unknown` + `wasm-bindgen` |

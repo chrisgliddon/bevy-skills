@@ -1,4 +1,4 @@
-# bevy-porting — Unity scenes → glTF → Bevy 0.18
+# bevy-porting — Unity scenes → glTF → Bevy 0.20
 
 > Referenced from `bevy-porting/SKILL.md § Unity (priority)`.
 
@@ -8,7 +8,7 @@ Unity's `.unity` scene format is YAML but encodes engine-internal instance IDs (
 
 The cleanest port path: **export to glTF 2.0, load natively in Bevy.**
 
-Bevy's `bevy_gltf` crate (included in `DefaultPlugins`) loads `.glb` / `.gltf` files directly. The loaded asset is a `Handle<Scene>` spawnable with `SceneRoot`. Animations, PBR materials, bone hierarchies, and mesh LODs all survive the roundtrip if the exporter is correct.
+Bevy's `bevy_gltf` crate (included in `DefaultPlugins`) loads `.glb` / `.gltf` files directly. The loaded asset is a `Handle<WorldAsset>` spawnable with `WorldAssetRoot` (0.19 renamed `Scene`/`SceneRoot` to `WorldAsset`/`WorldAssetRoot`; `bevy::scene` now means BSN, which does not load glTF yet). Animations, PBR materials, bone hierarchies, and mesh LODs all survive the roundtrip if the exporter is correct.
 
 ## Tooling options
 
@@ -27,12 +27,12 @@ For the FBX path: export FBX from Unity, import into Blender, verify the axis an
 ```rust
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load the root scene from a .glb
-    let scene: Handle<Scene> = asset_server.load("scenes/main.glb#Scene0");
-    commands.spawn(SceneRoot(scene));
+    let scene: Handle<WorldAsset> = asset_server.load("scenes/main.glb#Scene0");
+    commands.spawn(WorldAssetRoot(scene));
 }
 ```
 
-`#Scene0` selects the first scene in the file. Multi-scene `.glb` files use `#Scene1`, `#Scene2`, etc.
+`#Scene0` selects the first scene in the file (`GltfAssetLabel::Scene(0).from_asset(..)` is the typed form). Multi-scene `.glb` files use `#Scene1`, `#Scene2`, etc. React to the spawn finishing with an `On<WorldInstanceReady>` observer (was `SceneInstanceReady`).
 
 ## Using `scene_inventory.py` before and after export
 
@@ -50,6 +50,7 @@ The script parses the `.unity` YAML and emits a JSON object `{ "scene": "Main.un
 Bevy resolves animation targets by name:
 
 ```rust
+use bevy::animation::AnimationTargetId; // not in the prelude
 let hips = AnimationTargetId::from_name(&Name::new("Hips"));
 ```
 
@@ -69,9 +70,9 @@ If you see mirroring, apply `Transform { scale: Vec3::new(-1.0, 1.0, 1.0), .. }`
 
 Unity baked lightmaps (Enlighten / Progressive Lightmapper) are stored in a proprietary format that does not transfer to Bevy.
 
-Bevy 0.18 supports baked lightmaps via the `Lightmap` component, but the bake format is incompatible — you cannot reuse Unity's `.exr` lightmap atlases directly.
+Bevy 0.20 supports baked lightmaps via the `Lightmap` component, but the bake format is incompatible — you cannot reuse Unity's `.exr` lightmap atlases directly.
 
-**Recommendation for porting:** start with real-time lighting (`DirectionalLight`, `PointLight`) to unblock development. Schedule a Bevy-native lightmap bake later once the scene geometry is stable.
+**Recommendation for porting:** start with real-time lighting (`DirectionalLight`, `PointLight`, `GlobalAmbientLight` resource — `AmbientLight` is a per-camera component since 0.19) to unblock development. Schedule a Bevy-native lightmap bake later once the scene geometry is stable.
 
 ## What the glTF export drops (expect these gaps)
 

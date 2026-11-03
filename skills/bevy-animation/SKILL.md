@@ -1,15 +1,15 @@
 ---
 name: bevy-animation
-description: Use when wiring `AnimationPlayer` + `AnimationGraphHandle`, building an `AnimationGraph` from glTF clips, blending state-driven animations with `AnimationTransitions::play`, isolating body parts with `AnimationMask`, firing gameplay sync via `#[derive(AnimationEvent)]` + `On<E>` observers, tweening with `AnimatableCurve` / `EaseFunction` / `CubicSegment::new_bezier_easing`, or applying the 12 Basic Principles of Animation to 3D characters in Bevy 0.18.
+description: Use when wiring `AnimationPlayer` + `AnimationGraphHandle`, building an `AnimationGraph` from glTF clips, blending state-driven animations with `AnimationTransitions::play`, isolating body parts with `AnimationMask`, firing gameplay sync via `#[derive(AnimationEvent)]` + `On<E>` observers, tweening with `AnimatableCurve` / `EaseFunction` / `CubicSegment::new_bezier_easing` from `bevy::curve`, or applying the 12 Basic Principles of Animation to 3D characters in Bevy 0.20.
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:
   tier: "3"
   area: animation
-  bevy_version: "0.18"
+  bevy_version: "0.20"
 ---
 
-# Bevy 0.18 — Animation (graphs, blending, events, 12 principles)
+# Bevy 0.20 — Animation (graphs, blending, events, 12 principles)
 
 ## When to use this skill
 
@@ -20,10 +20,11 @@ metadata:
 - Procedural tweening *without* an `AnimationClip` — sampling a `Curve` per frame via `EasingCurve` + `EaseFunction` or `CubicSegment::new_bezier_easing`.
 - Applying the 12 Basic Principles of Animation (Thomas & Johnston, 1981) to a Bevy character.
 - Importing a Blender rig and finding bones aren't animated — usually the `Name` requirement for `AnimationTargetId::from_name`.
+- Fixing `bevy::math::curve` / `bevy::math::cubic_splines` import errors after upgrading to 0.20.
 
 ## Canonical end-to-end pattern
 
-Verified against `bevy = "0.18"` — `cargo check` clean in `bevy-skills-tester/skill-snippets/examples/bevy_animation.rs`.
+Verified against `bevy = "0.20"` — `cargo check` clean in `bevy-skills-tester/examples/bevy_animation.rs`.
 
 ```rust
 use bevy::{
@@ -108,7 +109,7 @@ fn main() {
 | Topic | Reference |
 |---|---|
 | Building blend / additive graphs, `AnimationMask`, hot-swap | [references/animation-graph.md](references/animation-graph.md) |
-| Blender → glTF → Bevy import: `Name`, axis, multi-clip, unsupported extensions | [references/gltf-import.md](references/gltf-import.md) |
+| Blender → glTF → Bevy import: `Name`, axis, multi-clip, morph targets, unsupported extensions | [references/gltf-import.md](references/gltf-import.md) |
 | Procedural animation in `Update` vs `FixedUpdate`, root-motion extraction | [references/procedural-animation.md](references/procedural-animation.md) |
 | Idle / walk / run blending; `AnimationTransitions::play` + Bevy `States` integration | [references/state-machines.md](references/state-machines.md) |
 | `#[derive(AnimationEvent)]`, `add_event_to_target`, `On<E>` observer wiring | [references/animation-events.md](references/animation-events.md) |
@@ -130,20 +131,25 @@ The four `principles-*.md` references group Thomas & Johnston's twelve principle
 
 ## Gotchas
 
-- **0.17 → 0.18 split.** `AnimationTarget { id, player }` no longer exists. It's now two separate components on each bone entity: `AnimationTargetId(Uuid)` + `AnimatedBy(Entity)`. The glTF loader spawns these for you.
-- **`gltf_animation` is on by default.** It's already in `bevy = "0.18"`'s default features — no opt-in needed unless you ran `default-features = false`.
-- **`AnimationTransitions::play_with_transition` does NOT exist.** The real and only method is `play(&mut self, player, node, Duration) -> &mut ActiveAnimation`. Chain `.set_repeat(RepeatAnimation::Forever)` / `.set_speed(f32)` on the returned value.
-- **`animated_field!` and `AnimatableCurve` are not in the prelude.** Import explicitly from `bevy::animation::{animated_field, animation_curves::{AnimatableCurve, AnimatableKeyframeCurve}}`.
-- **`On<AnimationEvent>` is not an `EntityEvent` observer.** `On<E>` derefs to `&E` (access event fields directly). The firing entity is at `trigger.trigger().target` (the `AnimationEventTrigger::target` field renamed from `animation_player` in 0.18). `.target()` is not available — that's for `EntityEvent`s.
-- **`Name` is required on bone entities** for `AnimationTargetId::from_name(&Name)` to resolve. The glTF loader sets this; hand-built skeletons must too.
-- **`AnimationMask` bit polarity.** A bit set in a node's `u64` mask means that node will *not* animate targets in that group. Register a bone into a group via `graph.add_target_to_mask_group(target_id, group_u32)`. To restrict a node to a single group, set every bit *except* that group's.
-- **Schedule.** Bevy's animation systems run in `PostUpdate`, chained `.before(TransformSystems::Propagate)`. Procedural systems that also write `Transform` should run in `Update` or order explicitly relative to `AnimationSystems` in `PostUpdate`.
-- **Out of scope in 0.18 core animation.** No built-in IK, morph-target/blend-shape animation isn't first-class, particle/FX systems are separate, `KHR_animation_pointer` glTF extension is unsupported — see [`references/gltf-import.md`](references/gltf-import.md).
+- **0.20: curves moved to `bevy_curve`.** `bevy::math::curve::{EasingCurve, EaseFunction}` and `bevy::math::cubic_splines::CubicSegment` are now `bevy::curve::{EasingCurve, EaseFunction}` and `bevy::curve::cubic_splines::CubicSegment`. `bevy::prelude` still re-exports them, so most code only needs the `use` lines fixed. Signatures are unchanged (`EasingCurve::new(start, end, ease_fn)`, `CubicSegment::new_bezier_easing(p1, p2)`).
+- **0.19: `AnimationTargetId` hash algorithm changed.** Different joint hierarchies no longer collide. Regenerate any serialized target IDs; IDs computed at runtime with `from_name` / `from_iter` are fine.
+- **0.19: morph targets live in `Mesh`.** `GltfAssetLabel::MorphTarget` is gone; `MeshMorphWeights` can reference an entity with `MorphWeights` instead of being auto-copied. See [`references/gltf-import.md`](references/gltf-import.md).
+- **0.20: observers lost the bundle generic.** `On<E>` is unchanged for `AnimationEvent`s. Lifecycle observers on bone entities are `On<Add<AnimatedBy>>`, not `On<Add, AnimatedBy>`.
+- **0.17 → 0.18 split.** `AnimationTarget { id, player }` no longer exists. It's two components on each bone entity: `AnimationTargetId(Uuid)` + `AnimatedBy(Entity)`. The glTF loader spawns these for you.
+- **`gltf_animation` is on by default.** No opt-in needed unless you ran `default-features = false`.
+- **`AnimationTransitions::play_with_transition` does NOT exist.** The only method is `play(&mut self, player, node, Duration) -> &mut ActiveAnimation`. Chain `.set_repeat(RepeatAnimation::Forever)` / `.set_speed(f32)` on the returned value.
+- **`animated_field!` and `AnimatableCurve` are not in the prelude.** Import from `bevy::animation::{animated_field, animation_curves::{AnimatableCurve, AnimatableKeyframeCurve}}`.
+- **`On<AnimationEvent>` is not an `EntityEvent` observer.** `On<E>` derefs to `&E`. The firing entity is `trigger.trigger().target` (`AnimationEventTrigger::target`). `.target()` / `.entity` are not available.
+- **`Name` is required on bone entities** for `AnimationTargetId::from_name(&Name)` to resolve. The glTF loader sets this; hand-built skeletons must too. Since 0.20 `Name::new` from `&str` needs `'static`; use `String` for runtime names.
+- **`AnimationMask` bit polarity.** A set bit means that node will *not* animate targets in that group. Register a bone via `graph.add_target_to_mask_group(target_id, group_u32)`. To restrict a node to one group, set every bit *except* that group's.
+- **Schedule.** Animation systems run in `PostUpdate` inside the `AnimationSystems` set (a unit set in 0.20), before `TransformSystems::Propagate`. Procedural systems that also write `Transform` should run in `Update` or order explicitly against `AnimationSystems`.
+- **Out of scope in 0.20 core animation.** No built-in IK, no `KHR_animation_pointer` (still unsupported by `bevy_gltf` 0.20.1), particles are separate — see [`references/gltf-import.md`](references/gltf-import.md).
 
 ## See also
 
-- `bevy-cameras` — camera animation (panning, dolly, focus follow) overlaps with this skill; use the same `EaseFunction` / `EasingCurve` toolkit.
-- `bevy-core-concepts` — `Update` vs `FixedUpdate` choice matters for procedural animation; see [`procedural-animation.md`](references/procedural-animation.md).
+- `bevy-migration-0-19-to-0-20` — the `bevy_curve` split and observer generic change in full.
+- `bevy-cameras` — camera animation (panning, dolly, focus follow) uses the same `EaseFunction` / `EasingCurve` toolkit.
+- `bevy-core-concepts` — `Update` vs `FixedUpdate` choice for procedural animation; see [`procedural-animation.md`](references/procedural-animation.md).
 - `bevy-ecs-systems` — observer wiring patterns (`On<E>`, `add_observer`) used for `AnimationEvent`s.
-- `bevy-pbr-materials` — material-parameter animation via `AnimatableCurve` targeting `StandardMaterial` fields (emissive flicker, alpha fades).
-- `bevy-custom-assets` — `AssetLoader` patterns if you serialise `AnimationGraph` to RON (`.animgraph.ron`) and load it as an asset.
+- `bevy-pbr-materials` — material-parameter animation via `AnimatableCurve` targeting `StandardMaterial` fields.
+- `bevy-custom-assets` — `AssetLoader` patterns if you serialise `AnimationGraph` to RON and load it as an asset.

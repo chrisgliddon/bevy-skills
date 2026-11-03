@@ -1,17 +1,17 @@
 ---
 name: bevy
-description: Use when starting any Bevy task, choosing between Update and FixedUpdate, picking Cargo feature flags, or recalling which sibling skill covers ECS, assets, rendering, or migration. Routes to the right Bevy 0.18 skill and pins the engine version for downstream snippets.
+description: Use when starting any Bevy task, choosing between Update and FixedUpdate, picking Cargo feature flags, or recalling which sibling skill covers ECS, assets, rendering, UI, or migration. Routes to the right Bevy 0.20 skill and pins the engine version for downstream snippets.
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:
   tier: "1"
   area: router
-  bevy_version: "0.18"
+  bevy_version: "0.20"
 ---
 
-# Bevy 0.18 — Router
+# Bevy 0.20 — Router
 
-**Read this first when working on a Bevy project.** All sibling skills assume Bevy 0.18 (released 2026-01-13). If the user's `Cargo.toml` pins a different version, stop and confirm before applying patterns from this collection.
+**Read this first when working on a Bevy project.** All sibling skills assume Bevy 0.20 (0.20.0 released 2026-10-08; current patch 0.20.1, requires rustc 1.97.1). If the user's `Cargo.toml` pins a different version, stop and confirm before applying patterns from this collection.
 
 ## Smallest valid app
 
@@ -34,40 +34,50 @@ fn setup(mut commands: Commands) {
 
 | Task | Skill |
 |---|---|
-| App / Plugin / Schedule basics, Update vs FixedUpdate, exclusive systems | `bevy-core-concepts` |
-| `#[derive(Component)]`, `#[require(...)]`, observers (`On<E>`), hooks, storage | `bevy-ecs-components` |
-| `Query`, `With`/`Without`/`Or`, `Changed`/`Added`, `par_iter`, query lenses, `ArchetypeQueryData` | `bevy-ecs-queries` |
-| `SystemParam`, `SystemSet`, `.run_if`, ordering, `remove_systems_in_set` | `bevy-ecs-systems` |
-| `Cargo.toml` features: `2d`/`3d`/`ui`, mid-level `2d_api`, renamed features | `bevy-cargo-features` |
-| Upgrading from 0.17 — `MessageReader`, `On`, `RenderTarget`, `GlobalAmbientLight`, etc. | `bevy-migration-0-17-to-0-18` |
-| `AssetServer`, `Handle<T>`, hot-reload, `short-type-path`, `SeekableReader` | `bevy-assets` |
-| Writing an `AssetLoader` (must `#[derive(TypePath)]` in 0.18) | `bevy-custom-assets` |
+| App / Plugin / Schedule basics, Update vs FixedUpdate, exclusive systems (`&mut World` anywhere in 0.20) | `bevy-core-concepts` |
+| `#[derive(Component)]`, `#[require(...)]`, observers (`On<E>`, `On<Add<T>>`), hooks (`on_add`/`on_discard`), storage | `bevy-ecs-components` |
+| `Query`, `With`/`Without`/`Or`, `Changed`/`Added`, `par_iter`, `iter_many(..).matched()`, query lenses | `bevy-ecs-queries` |
+| `SystemParam`, `SystemSet`, `.run_if`, ordering, `.chain_weak()`, `remove_systems_in_set` | `bevy-ecs-systems` |
+| `Cargo.toml` features: `2d`/`3d`/`ui`, `*_api`, `bevy_curve`, `compressed_image_saver*`, WASM trim | `bevy-cargo-features` |
+| Upgrading from 0.19 — `On<Add<T>>`, `PointerClick`, `Hovered`/`Pressed`, WESL, `set_if_different` | `bevy-migration-0-19-to-0-20` |
+| Upgrading from 0.18 — `FontSource`/`FontSize`, `bevy_world_serialization`, resources-as-components | `bevy-migration-0-18-to-0-19` |
+| Upgrading from 0.17 — `MessageReader`, `On`, `RenderTarget`, `GlobalAmbientLight` | `bevy-migration-0-17-to-0-18` |
+| `AssetServer`, `Handle<T>`, `load_builder`, hot-reload, `WorldAssetRoot` for glTF scenes | `bevy-assets` |
+| Writing an `AssetLoader` (`Reader::seekable` is required) | `bevy-custom-assets` |
 | WASM build pipeline, WebGPU vs WebGL2 | `bevy-wasm-webgpu` |
-| `Camera3d`, `Projection`, `RenderTarget` component, `FreeCamera`, `PanCamera` | `bevy-cameras` |
-| `StandardMaterial`, `MaterialPlugin<M>`, `AsBindGroup::label()`, 0.18 PBR shading fix | `bevy-pbr-materials` |
+| `Camera3d`, `Projection`, `RenderTarget` component, `Tonemapping::Linear`, `ScreenSpaceTransmission`, `FreeCamera`, `PanCamera` | `bevy-cameras` |
+| `StandardMaterial`, `MaterialPlugin<M>`, `AsBindGroup`, WESL custom shaders, lighting, atmosphere | `bevy-pbr-materials` |
+| GPU particles (`bevy_hanabi`), Gaussian splats, flipbooks, custom VFX materials | `bevy-vfx` |
+| `AnimationPlayer`, `AnimationGraph`, `AnimationTransitions`, `AnimationMask`, `AnimationEvent`, easing curves | `bevy-animation` |
+| Recording a camera to MP4 or PNG sequences (`bevy_capture`) | `bevy-capture` |
 | Voxel meshing with `block-mesh-rs`, chunk pipeline, greedy quads | `bevy-voxel-pipeline` |
 | RON block definitions, palette, KTX2 atlas baking | `bevy-voxel-data` |
 | `es-fluent-manager-bevy` i18n — `FluentText<T>`, `BevyFluentText`, `LocaleChangeEvent`, `i18n.toml` | `bevy-fluent` |
-| `Node`, `Button`, `Interaction`, `children![]`, `TextFont`, `InputFocus`, `BorderRadius`, `BackgroundColor` | `bevy-ui` |
+| `Node`, `ui_widgets::Button` + `Hovered`/`Pressed`, `children![]`, `TextFont`/`FontSize`, `Val::Em`, `Node::border_radius`, `InputFocus` | `bevy-ui` |
+| Porting from Unity, Unreal, Godot, Phaser, Flash, Defold, Roblox, GameMaker | `bevy-porting` |
 | Detecting copy-paste / near-duplicate Rust code before committing (`similarity-rs --cross-file`) | `similarity-rs` |
 
-## Cardinal rules (every Bevy 0.18 task)
+## Cardinal rules (every Bevy 0.20 task)
 
-1. **Events are messages.** `EventReader<E>` and `EventWriter<E>` were renamed to `MessageReader<M>` / `MessageWriter<M>` in 0.17. Still wrong if Claude writes the old name in 0.18.
-2. **Observers use `On<E>`, not `Trigger<E>`.** `Trigger` was renamed in 0.17 (PR #19596).
-3. **Schedule order is explicit.** `SimpleExecutor` was removed in 0.18 — ambiguous orderings panic at schedule-build. Use `.before()` / `.after()` / `.chain()`.
-4. **No `.unwrap()` in systems.** Systems run every frame. Use `let ... else { return };` or a real error path.
-5. **State changes always trigger transitions** in 0.18. Use `set_if_neq` if you need 0.17 behavior.
-6. **`RenderTarget` is its own component** in 0.18, not a field on `Camera`.
-7. **`Mesh::insert_attribute` → `try_insert_attribute(...)?`** — returns `Result` in 0.18.
+1. **Events are messages.** `EventReader<E>` / `EventWriter<E>` became `MessageReader<M>` / `MessageWriter<M>` in 0.17. Observers use `On<E>`, never `Trigger<E>`.
+2. **Lifecycle observers carry the bundle on the event.** `On<Add<Player>>`, not `On<Add, Player>` (changed in 0.20). `Replace` became `Discard` in 0.19.
+3. **Pointer events are flat.** `On<PointerClick>`, `click.pointer.position`; not `On<Pointer<Click>>` (0.20).
+4. **UI interaction is `Hovered` + `Pressed`.** `ui::Interaction` and `ui::widgets::Button` are deprecated in 0.20; spawn `ui_widgets::Button`.
+5. **Text is `FontSource` + `FontSize`.** `TextFont { font: handle.into(), font_size: FontSize::Px(24.0) }` (0.19). Default size is `FontSize::Rem(1.)` (0.20).
+6. **Shaders are WESL.** `.wesl`, `import a::b;`, `@if(DEF)`. naga_oil `#import` / `#ifdef` fail at asset load in 0.20.
+7. **Resources are components** (0.19). `Res<T>` still works, but one type cannot be both `Component` and `Resource`.
+8. **Scenes:** glTF spawns with `WorldAssetRoot` from `bevy_world_serialization`; `bevy_scene` is BSN (0.19).
+9. **No `.unwrap()` in systems.** Use `let ... else { return };` or a real error path.
+10. **Schedule order is explicit.** Ambiguities are ignored by default (`ScheduleBuildSettings::ambiguity_detection` is `LogLevel::Ignore`); opt into `LogLevel::Error` to catch them. Built-in sets use `.chain_weak()` in 0.20, so cross-set ordering through channels or atomics needs an explicit `.after()`.
 
 ## Gotchas
 
-- Bevy's training-data footprint is dominated by 0.10–0.15 code. If a snippet feels obvious, double-check it against `bevy-migration-0-17-to-0-18` before trusting it.
-- `bevy::prelude::*` doesn't re-export everything. Many ECS internals live under `bevy::ecs::...` — import explicitly when needed.
-- The `bevy` crate now re-exports many subcrates (`bevy_camera`, `bevy_light`, `bevy_post_process`, `bevy_anti_alias`, `bevy_input_focus`, `bevy_gizmos_render`, `bevy_sprite_render`, `bevy_ui_render`). Subcrate APIs are stable points to depend on for plugins.
+- Bevy's training-data footprint is dominated by 0.10–0.16 code. If a snippet feels obvious, check it against the three migration skills before trusting it.
+- `bevy::prelude::*` doesn't re-export everything. `Hovered` is `bevy::picking::hover::Hovered`; `Pressed` is the marker `bevy::ui::Pressed` (query with `Has<Pressed>`); `Tonemapping` is `bevy::core_pipeline::tonemapping::Tonemapping`; `ScreenSpaceTransmission` is `bevy::pbr::ScreenSpaceTransmission`.
+- The `bevy` crate re-exports many subcrates (`bevy_camera`, `bevy_light`, `bevy_material`, `bevy_extract`, `bevy_curve`, `bevy_shape`, `bevy_world_serialization`, `bevy_ui_widgets`, `bevy_feathers`). Subcrate APIs are stable points to depend on for plugins.
+- Deprecations (`Interaction`, `set_if_neq`, `AssetId::invalid()`) compile with warnings in 0.20 and will be removed later. Fix them now.
 
 ## See also
 
-- `bevy-migration-0-17-to-0-18` — the catalogue of renames and breaks.
+- `bevy-migration-0-19-to-0-20` — the latest catalogue of renames and breaks.
 - `bevy-cargo-features` — what to put in `Cargo.toml` before any of the above will compile the way you want.

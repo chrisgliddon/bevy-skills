@@ -1,4 +1,4 @@
-# Bevy 0.18 — Lighting Reference
+# Bevy 0.20 — Lighting Reference
 
 Deep dive on light components and resources. See also
 [mesh-primitives](mesh-primitives.md) and [custom-material](custom-material.md).
@@ -19,7 +19,8 @@ commands.spawn((
         color: Color::WHITE,
         // lux (lumens/m²). Default = light_consts::lux::AMBIENT_DAYLIGHT = 10_000.0
         illuminance: 10_000.0,
-        shadows_enabled: true,
+        shadow_maps_enabled: true,     // 0.19: was `shadows_enabled`
+        contact_shadows_enabled: true, // 0.19: screen-space contact shadows
         // bias tuning — raise shadow_depth_bias to fix "shadow acne",
         // raise shadow_normal_bias to fix "peter-panning"
         shadow_depth_bias: 0.02,   // default
@@ -37,14 +38,14 @@ commands.spawn((
 ));
 ```
 
-This exact spawn shape is what the `card_pickup` rebuild needed and couldn't find
-in the skill — note that `CascadeShadowConfig` is an auto-required component, so
-you can override it in the bundle.
+`CascadeShadowConfig` is an auto-required component, so you can override it in the
+bundle.
 
 **Default values:**
 - `color`: `Color::WHITE`
 - `illuminance`: `10_000.0` lux
-- `shadows_enabled`: `false`
+- `shadow_maps_enabled`: `false`
+- `contact_shadows_enabled`: `false`
 - `shadow_depth_bias`: `0.02`
 - `shadow_normal_bias`: `1.8`
 
@@ -65,7 +66,7 @@ commands.spawn((
         range: 20.0,
         // sphere radius for specular highlight size (not shadow softness)
         radius: 0.0,
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         shadow_depth_bias: 0.08,   // default
         shadow_normal_bias: 0.6,   // default
         shadow_map_near_z: 0.1,    // default — raise for better depth precision
@@ -75,16 +76,16 @@ commands.spawn((
 ));
 ```
 
-The `3d_scene` rebuild only needed `shadows_enabled: true` — the intensity/range
-defaults are intentionally very large so lights are visible at Bevy's default
-"very overcast day" exposure. For indoor lighting lower the intensity or
+The intensity/range defaults are intentionally very large so lights are visible
+at Bevy's default "very overcast day" exposure. For indoor lighting lower the intensity or
 tune the camera's exposure/tonemapping.
 
 **Default values:**
 - `intensity`: `1_000_000.0` lumens
 - `range`: `20.0` m
 - `radius`: `0.0`
-- `shadows_enabled`: `false`
+- `shadow_maps_enabled`: `false`
+- `contact_shadows_enabled`: `false`
 
 ---
 
@@ -100,7 +101,7 @@ commands.spawn((
         intensity: 1_000_000.0,   // lumens, same as PointLight default
         range: 20.0,
         radius: 0.0,
-        shadows_enabled: false,
+        shadow_maps_enabled: false,
         shadow_depth_bias: 0.02,
         shadow_normal_bias: 1.8,
         shadow_map_near_z: 0.1,
@@ -152,9 +153,9 @@ fn setup_ambient(mut ambient: ResMut<GlobalAmbientLight>) {
 
 ---
 
-## AmbientLight (per-camera component, 0.18 change)
+## AmbientLight (per-camera component)
 
-New in 0.18: attach `AmbientLight` directly to a camera entity to override
+Attach `AmbientLight` directly to a camera entity to override
 `GlobalAmbientLight` for that camera only. This is a component, not a resource.
 
 ```rust
@@ -168,6 +169,49 @@ commands.spawn((
     },
 ));
 ```
+
+---
+
+## Contact shadows (0.19+)
+
+Screen-space contact shadows fill the small gaps shadow maps miss (where objects meet
+the ground). Enable per light with `contact_shadows_enabled: true` and per camera with
+the `ContactShadows` component. `ContactShadows` requires `DepthPrepass` and adds it.
+
+```rust
+use bevy::pbr::ContactShadows;
+
+commands.spawn((
+    Camera3d::default(),
+    ContactShadows { linear_steps: 16, thickness: 0.1, length: 0.3 }, // defaults
+));
+```
+
+---
+
+## Atmosphere (entity since 0.19)
+
+`Atmosphere` is spawned on its own entity in `bevy::light`; the nearest one is used.
+The camera opts in with `AtmosphereSettings` (in `bevy::pbr`, requires `Hdr`).
+
+```rust
+use bevy::light::atmosphere::ScatteringMedium;
+use bevy::light::Atmosphere;
+use bevy::pbr::AtmosphereSettings;
+
+fn setup_sky(mut commands: Commands, mut mediums: ResMut<Assets<ScatteringMedium>>) {
+    let earth_medium = mediums.add(ScatteringMedium::earth(256, 256));
+    // Default Transform lines the horizon up with Y-up. Scale the Transform to
+    // change units (0.19 removed `AtmosphereSettings::scene_units_to_m`).
+    commands.spawn(Atmosphere::earth(earth_medium));
+
+    commands.spawn((Camera3d::default(), AtmosphereSettings::default()));
+}
+```
+
+Renames: `Atmosphere::earthlike` → `Atmosphere::earth`, `bottom_radius`/`top_radius` →
+`inner_radius`/`outer_radius`, `bevy::pbr::Atmosphere` → `bevy::light::Atmosphere`.
+0.20 makes `AtmosphereBuffer` a per-camera component, so several cameras can share a sky.
 
 ---
 
@@ -205,7 +249,7 @@ app.insert_resource(PointLightShadowMap { size: 2048 }); // default 1024
 
 ```rust
 // SpotLight does NOT use PointLightShadowMap. It shares the directional-light
-// shadow map (verified at bevy_light-0.18.1/src/spot_light.rs:21).
+// shadow map (bevy_light 0.20.1, `spot_light.rs` doc comment).
 app.insert_resource(DirectionalLightShadowMap { size: 4096 }); // default 2048
 ```
 
@@ -223,7 +267,10 @@ app.insert_resource(DirectionalLightShadowMap { size: 4096 }); // default 2048
   ignored; only the rotation (forward direction) affects shading. Place it
   anywhere for convenience.
 - **Shadows are expensive** — each shadow-casting light multiplies rendering cost.
-  Keep shadow-casting lights to one or two. Disable `shadows_enabled` for fill
+  Keep shadow-casting lights to one or two. Disable `shadow_maps_enabled` for fill
   lights.
 - **`shadow_depth_bias` defaults differ by type** — `DirectionalLight` defaults
   to `0.02`, `PointLight` to `0.08`.
+- **`shadows_enabled` no longer exists (0.19).** Stale code using it fails to compile;
+  the field is `shadow_maps_enabled`, and `contact_shadows_enabled` is separate.
+- **Light gizmos moved to `bevy_light` (0.19)** — `ShowLightGizmo`, `LightGizmoPlugin`.

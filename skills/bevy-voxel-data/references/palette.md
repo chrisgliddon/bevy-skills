@@ -14,8 +14,9 @@ use bevy::reflect::TypePath;
 use serde::Deserialize;
 use std::collections::HashMap;
 
+// Named `BlockVisibility` because `bevy::prelude::Visibility` already exists.
 #[derive(Debug, Deserialize, Clone, Copy, Default)]
-pub enum Visibility { #[default] Empty, Translucent, Opaque }
+pub enum BlockVisibility { #[default] Empty, Translucent, Opaque }
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct BlockFaces {
@@ -28,7 +29,7 @@ pub struct BlockFaces {
 #[derive(Debug, Deserialize, Clone)]
 pub struct BlockDef {
     pub name:       String,
-    pub visibility: Visibility,
+    pub visibility: BlockVisibility,
     #[serde(default)] pub faces: Option<BlockFaces>,
     #[serde(default)] pub flags: Vec<String>,
 }
@@ -39,6 +40,7 @@ pub struct BlockCatalog {
 }
 
 /// Compact runtime palette: catalog index == BlockId.
+/// `Resource` implies `Component` since 0.19 — do not add a second derive.
 #[derive(Resource, Default)]
 pub struct Palette {
     pub by_id:   Vec<PaletteEntry>,
@@ -48,7 +50,7 @@ pub struct Palette {
 #[derive(Default, Clone)]
 pub struct PaletteEntry {
     pub name:       String,
-    pub visibility: Visibility,
+    pub visibility: BlockVisibility,
     /// Atlas tile index for each of the six face directions.
     /// Index ordering matches block-mesh-rs face order (see table below).
     pub face_tiles: [u16; 6],
@@ -147,5 +149,5 @@ fn on_catalog_loaded(
 }
 ```
 
-Run this system in `Update` gated on `AssetEvent<BlockCatalog>` or a
+Run this system in `Update` gated on `MessageReader<AssetEvent<BlockCatalog>>` or a
 `State` transition — after both the catalog and atlas index are ready.

@@ -1,4 +1,4 @@
-# bevy-porting — Unity Mecanim / Animator → Bevy 0.18 animation graph
+# bevy-porting — Unity Mecanim / Animator → Bevy 0.20 animation graph
 
 > Referenced from `bevy-porting/SKILL.md § Unity (priority)`.
 
@@ -7,7 +7,7 @@
 Unity's Animator window: states ARE clips; you draw transitions between states.
 Bevy's `AnimationGraph`: a blend DAG of nodes; transitions are runtime weight ramps.
 
-| Unity Mecanim | Bevy 0.18 |
+| Unity Mecanim | Bevy 0.20 |
 |---|---|
 | Animator Controller asset | `AnimationGraph` asset |
 | State (with clip) | `AnimationNodeIndex` (clip node) |
@@ -61,7 +61,7 @@ fn drive_locomotion(
 
 ## Blend Trees
 
-| Unity | Bevy 0.18 |
+| Unity | Bevy 0.20 |
 |---|---|
 | 1D Blend Tree | `graph.add_clip` siblings under a blend node; weights computed from your `Resource<f32>` and written to `graph.get_mut(node).weight` |
 | 2D Blend Tree | Two weighted axes; do-able but verbose — simplify to 1D where possible |
@@ -107,7 +107,7 @@ clip.add_event(0.42, FootstepEvent { foot: 0 });
 // Handle anywhere:
 fn on_footstep(trigger: On<FootstepEvent>) {
     let _foot = trigger.foot;
-    let _entity = trigger.trigger().target; // NOT trigger.target()
+    let _entity = trigger.trigger().target; // AnimationEventTrigger.target; NOT trigger.target()
 }
 // app.add_observer(on_footstep);
 ```
@@ -117,7 +117,7 @@ for `add_event_to_target` (fires on the bone entity, not the player).
 
 ## Avatar / Humanoid retargeting
 
-Bevy 0.18 has **no built-in humanoid retargeting**. Clip targets are resolved by name:
+Bevy 0.20 has **no built-in humanoid retargeting**. Clip targets are resolved by name:
 `AnimationTargetId::from_name(&Name::new("Hips"))`.
 
 Options:
@@ -161,7 +161,7 @@ Each keyframe is a `[time, value]` two-element array. `path` is a flat string (t
 path), not an array. `property` uses dotted Bevy naming (`Transform.translation`,
 `Transform.rotation`, etc.).
 
-Feed each track's `keyframes` array into `AnimatableKeyframeCurve::new([...])`, wrap it
+Feed each track's `keyframes` array into `AnimatableKeyframeCurve::new([...])` (returns `Result` — fewer than two keyframes is an error), wrap it
 in `AnimatableCurve::new(animated_field!(Transform::translation), curve)`, and attach it
 to an `AnimationClip` via `clip.add_curve_to_target(target_id, curve)`.
 
@@ -176,6 +176,6 @@ Settings, disable compression ("Off") and re-bake before running the extractor.
 
 - [`../SKILL.md`](../SKILL.md) — bevy-porting dispatcher
 - [`unity-input.md`](unity-input.md) — porting Unity input alongside animation state
-- [`bevy-animation/SKILL.md`](../../bevy-animation/SKILL.md) — full Bevy 0.18 animation API
+- [`bevy-animation/SKILL.md`](../../bevy-animation/SKILL.md) — full Bevy 0.20 animation API
 - [`bevy-animation/references/state-machines.md`](../../bevy-animation/references/state-machines.md)
 - [`bevy-animation/references/animation-events.md`](../../bevy-animation/references/animation-events.md)

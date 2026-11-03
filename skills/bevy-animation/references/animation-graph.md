@@ -91,7 +91,7 @@ Swap and immediately start a transition to prevent a pose snap. See `references/
 
 ## Gotchas
 
-- `gltf_animation` is on by default in `bevy = "0.18"` — you don't need to opt in.
+- `gltf_animation` is on by default in `bevy = "0.20"` — you don't need to opt in.
 - `AnimationGraphHandle` must live on the **same entity** as `AnimationPlayer`, not on a bone child.
 - Weights compose multiplicatively root-to-leaf; a node at weight 0.0 silences its entire subtree.
 - `add_additive_blend` creates an `Add` node; `add_clip` under root creates a `Blend` (weighted average) child.

@@ -80,7 +80,7 @@ fn build_rootless_graph(
 Animation systems (`animate_targets`, `advance_animations`, `advance_transitions`) run in `PostUpdate`, before `TransformSystems::Propagate`. If your procedural system also writes `Transform`:
 
 - Run it in `Update` (before `PostUpdate`) — animation then overwrites your write for bones it tracks, which is usually correct for root-excluded rigs.
-- Or explicitly order it with `app.add_systems(PostUpdate, my_system.before(AnimationSystems::AnimateTargets))`.
+- Or explicitly order it with `app.add_systems(PostUpdate, my_system.before(bevy::app::AnimationSystems))` (`AnimationSystems` is a unit set, not in the prelude).
 
 Avoid writing `Transform` on a bone entity in `PostUpdate` _after_ `animate_targets` without explicit ordering — the write will silently race.
 
@@ -89,7 +89,7 @@ Avoid writing `Transform` on a bone entity in `PostUpdate` _after_ `animate_targ
 For one-off UI or camera motion, skip `AnimationClip` entirely and sample a curve directly:
 
 ```rust
-use bevy::math::curve::EasingCurve;
+use bevy::curve::EasingCurve;
 
 #[derive(Component)]
 struct PanelTween {

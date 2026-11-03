@@ -14,13 +14,10 @@ CPU only updates a time uniform. Good candidates:
 - Chromatic-aberration or screen-space distortion overlays
 - Glowing / pulsing emissive cores that pair with hanabi sparks around them
 
-## Custom `Material` in Bevy 0.18
+## Custom `Material` in Bevy 0.20
 
 ```rust
-use bevy::{
-    prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef},
-};
+use bevy::{prelude::*, render::render_resource::AsBindGroup, shader::ShaderRef};
 
 #[derive(Asset, AsBindGroup, TypePath, Clone)]
 struct FlickerMaterial {
@@ -32,18 +29,16 @@ struct FlickerMaterial {
 
 impl Material for FlickerMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/flicker.wgsl".into()
+        "shaders/flicker.wesl".into()
     }
     // alpha_mode can be overridden here; default is Opaque
 }
 ```
 
-> **0.18 gotcha — `AsBindGroup::label()` is now required.**
-> In 0.17 it had a blanket default implementation. In 0.18 the blanket was removed;
-> you must either derive it (the `#[derive(AsBindGroup)]` macro handles this) or
-> implement it manually. Using `#[derive(AsBindGroup)]` as shown above is the
-> correct path — it generates a `label()` that returns the type name.
-> Cross-reference: `bevy-pbr-materials` covers the full `AsBindGroup` contract.
+> **0.20 gotcha — shaders are WESL.** naga_oil is gone. A `.wgsl` file with
+> `#import` or `#ifdef` fails to load. Use `import ...;` and `@if(...)`, and name the
+> file `.wesl`. Plain WGSL with no directives still works. `bevy-pbr-materials` has
+> the full translation table.
 
 Register the plugin once in your `App`:
 
@@ -55,7 +50,7 @@ app.add_plugins(MaterialPlugin::<FlickerMaterial>::default());
 
 ```toml
 [dependencies]
-bevy = "0.18"
+bevy = "0.20"
 ```
 
 ```rust
@@ -66,23 +61,27 @@ fn update_flicker(
     q: Query<&MeshMaterial3d<FlickerMaterial>>,
 ) {
     for handle in &q {
-        if let Some(mat) = materials.get_mut(handle) {
+        // 0.19: get_mut returns AssetMut and only fires AssetEvent::Modified on write.
+        if let Some(mut mat) = materials.get_mut(handle) {
             mat.time = time.elapsed_secs();
         }
     }
 }
 ```
 
-The paired WGSL shader (`assets/shaders/flicker.wgsl`):
+The paired WESL shader (`assets/shaders/flicker.wesl`). Two `#[uniform(0)]` fields
+share one uniform struct at binding 0:
 
-```wgsl
-@group(2) @binding(0) var<uniform> time: f32;
-@group(2) @binding(1) var<uniform> intensity: f32;
+```wesl
+import bevy_pbr::render::forward_io::VertexOutput;
+
+struct Flicker { time: f32, intensity: f32 }
+@group(2) @binding(0) var<uniform> flicker_u: Flicker;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let flicker = 0.7 + 0.3 * sin(time * 8.0 + in.uv.x * 3.14159);
-    let emissive = vec3<f32>(1.0, 0.4, 0.05) * flicker * intensity;
+    let flicker = 0.7 + 0.3 * sin(flicker_u.time * 8.0 + in.uv.x * 3.14159);
+    let emissive = vec3<f32>(1.0, 0.4, 0.05) * flicker * flicker_u.intensity;
     return vec4<f32>(emissive, 1.0);
 }
 ```
@@ -134,8 +133,8 @@ overlapping transparent layers at high screen coverage will cause fragment overd
 
 ## WASM compatibility
 
-Custom `Material` + WGSL shaders work on both WebGL2 and WebGPU targets in Bevy 0.18,
-provided the WGSL stays within WGSL's core feature set:
+Custom `Material` + WESL shaders work on both WebGL2 and WebGPU targets in Bevy 0.20,
+provided the shader stays within WGSL's core feature set:
 
 - Texture sampling, uniforms, basic arithmetic — both backends.
 - Compute shaders — WebGPU only.
@@ -152,4 +151,4 @@ for the full feature matrix.
 - [`non-hanabi-vfx.md`](non-hanabi-vfx.md) — CPU particles, flipbooks, trails, decals
 - [`performance.md`](performance.md) — transparent-pass cost and overdraw budget
 - `bevy-pbr-materials` — `AsBindGroup`, `AlphaMode`, full `Material` trait reference
-- `bevy-wasm-webgpu` — WebGL2 vs WebGPU feature matrix for WGSL shaders
+- `bevy-wasm-webgpu` — WebGL2 vs WebGPU feature matrix for shaders

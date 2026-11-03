@@ -6,7 +6,7 @@ Rules enforced (see CLAUDE.md "Hard rules"):
   - Allowed keys: name, description, license, compatibility, metadata.
   - `name` matches ^[a-z0-9]+(-[a-z0-9]+)*$ (OpenCode regex), 1-64 chars,
     and equals the parent directory's name.
-  - `description` is 1-1024 chars and contains the literal "Bevy 0.18".
+  - `description` is 1-1024 chars and contains the literal "Bevy 0.20".
   - `metadata` (if present) is a mapping of simple key: value lines.
 
 Usage:
@@ -31,7 +31,7 @@ ALLOWED_KEYS = {"name", "description", "license", "compatibility", "metadata"}
 REQUIRED_KEYS = {"name", "description"}
 MAX_NAME_LEN = 64
 MAX_DESCRIPTION_LEN = 1024
-REQUIRED_VERSION_TOKEN = "Bevy 0.18"
+REQUIRED_VERSION_TOKEN = "Bevy 0.20"
 
 
 @dataclass
@@ -155,7 +155,7 @@ def lint_file(path: Path) -> LintResult:
         md = fm.get("metadata") or {}
         expected_pin = md.get("target_version") if isinstance(md, dict) else None
         if not isinstance(expected_pin, str) or not expected_pin:
-            expected_pin = REQUIRED_VERSION_TOKEN  # "Bevy 0.18"
+            expected_pin = REQUIRED_VERSION_TOKEN  # "Bevy 0.20"
         if expected_pin not in desc:
             res.errors.append(
                 f"description must contain literal {expected_pin!r} "

@@ -1,6 +1,6 @@
 # Voxel Generation Optimizations
 
-Best practices for fast procedural voxel world generation in Bevy 0.18.
+Best practices for fast procedural voxel world generation in Bevy 0.20.
 The techniques below account for the bulk of a documented ~25× throughput gain
 (~20M → ~500M voxels/sec) on a Bevy/Rust voxel engine. See
 [storage-formats](storage-formats.md) for complementary runtime-storage choices.
@@ -248,8 +248,7 @@ processes completed `Task<ChunkData>` components:
 
 ```rust
 use bevy::prelude::*;
-use bevy::tasks::{AsyncComputeTaskPool, Task};
-use futures_lite::future;
+use bevy::tasks::{block_on, poll_once, AsyncComputeTaskPool, Task};
 
 #[derive(Component)]
 struct GenerateChunkTask(Task<ChunkData>);
@@ -274,7 +273,7 @@ fn poll_chunk_generation(
     mut tasks: Query<(Entity, &mut GenerateChunkTask)>,
 ) {
     for (entity, mut task) in &mut tasks {
-        if let Some(chunk_data) = future::block_on(future::poll_once(&mut task.0)) {
+        if let Some(chunk_data) = block_on(poll_once(&mut task.0)) {
             commands.entity(entity)
                 .remove::<GenerateChunkTask>()
                 .insert(chunk_data);
@@ -282,6 +281,11 @@ fn poll_chunk_generation(
     }
 }
 ```
+
+`block_on` and `poll_once` are re-exported from `bevy::tasks` — no `futures_lite`
+dependency. Since 0.19, dropping a `Task` on `wasm32` cancels it; despawning a
+chunk entity mid-generation therefore cancels the work, which is usually what
+you want. Call `task.0.detach()` first if the result must still land.
 
 See `bevy-voxel-pipeline` for the meshing step that follows generation.
 

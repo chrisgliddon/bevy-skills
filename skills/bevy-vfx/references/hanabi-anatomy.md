@@ -34,7 +34,7 @@ commands.spawn(...)          // ParticleEffect::new(handle) + Transform + Visibi
 
 ## Why `ParticleEffect` is a bare component
 
-In 0.18 `ParticleEffectBundle` was removed. `ParticleEffect` itself carries
+`ParticleEffectBundle` was removed in hanabi 0.18. `ParticleEffect` itself carries
 `#[require(CompiledParticleEffect, Transform, Visibility, VisibilityClass, SyncToRenderWorld)]`,
 so Bevy's required-components system inserts those six components automatically. You only
 need to provide the ones where you want non-default values:
@@ -70,7 +70,9 @@ let spawner = SpawnerSettings::once(100.0_f32.into());
 ```
 
 All three take `CpuValue<f32>`, created by calling `.into()` on a `f32`. `CpuValue` can
-also express random ranges — see [docs.rs/bevy_hanabi/0.18.0](https://docs.rs/bevy_hanabi/0.18.0/bevy_hanabi/enum.CpuValue.html).
+also express random ranges — see [docs.rs/bevy_hanabi/0.20.0](https://docs.rs/bevy_hanabi/0.20.0/bevy_hanabi/enum.CpuValue.html).
+`SpawnerSettings::try_new()` (0.19+) is the non-panicking constructor for editor-style
+validation.
 
 ## `ExprWriter` deep-dive
 
@@ -97,7 +99,7 @@ let module = writer.finish();  // call AFTER all expressions are built
 
 Calling `writer.lit(...)` after `writer.finish()` panics. Build all expressions first.
 
-## Worked example (verified against `bevy_hanabi = "0.18.0"`)
+## Worked example (API checked against the `bevy_hanabi = "0.20.0"` source)
 
 ```rust
 use bevy::prelude::*;
@@ -162,6 +164,16 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
     ));
 }
 ```
+
+## 0.19 / 0.20 changes that touch this flow
+
+- `EffectAsset::mesh` is `Option<AssetPath<'static>>` (0.19). Override per instance with
+  the `EffectMesh` component instead of a handle on the asset.
+- `EffectAsset::serialize()` / `deserialize()` write the canonical `*.effect` RON (0.19);
+  the `serde` and `typetag` features are gone.
+- Same-`EffectAsset` instances batch into one compute dispatch (0.20). Share the asset.
+- Shader templates are WESL (0.20). Custom shader code imports
+  `bevy_hanabi::render::vfx_common`, not `bevy_hanabi::vfx_common`.
 
 ## See also
 

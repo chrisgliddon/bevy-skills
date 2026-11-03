@@ -9,7 +9,7 @@ particles. Reach for the alternatives below when:
 
 - **Count < ~100 particles** — spawning individual `Sprite` entities and driving them
   with a Bevy system is simpler, debuggable, and zero dependency overhead.
-- **WebGL2 target** — `bevy_hanabi 0.18.0` requires WebGPU. It will not compile or
+- **WebGL2 target** — `bevy_hanabi 0.20.0` requires WebGPU. It will not compile or
   run on `wasm32` with the `webgl2` feature. Use sprite flipbooks or custom-material
   shaders instead.
 - **Canned, identical-every-time FX** — hit-sparks, muzzle flashes, explosions where
@@ -38,7 +38,7 @@ fn spawn_burst(mut commands: Commands, asset_server: Res<AssetServer>) {
     for i in 0..30_u32 {
         let angle = (i as f32 / 30.0) * std::f32::consts::TAU;
         commands.spawn((
-            Sprite::from_image(image.clone()),
+            Sprite::from_image(image.clone()), // 0.20: Sprite has an `alpha_mode` field
             Transform::from_xyz(0.0, 0.0, 0.0),
             Particle {
                 velocity: Vec3::new(angle.cos(), angle.sin(), 0.0) * 3.0,
@@ -55,7 +55,7 @@ fn tick_particles(
 ) {
     for (entity, mut xf, mut p) in &mut q {
         p.lifetime.tick(time.delta());
-        if p.lifetime.finished() {
+        if p.lifetime.is_finished() { // `Timer::finished` is gone; use `is_finished`
             commands.entity(entity).despawn();
         } else {
             xf.translation += p.velocity * time.delta_secs();
@@ -68,34 +68,37 @@ fn tick_particles(
 Fine up to a few hundred particles. Past that, draw-call overhead dominates — switch
 to hanabi or collapse into a single `Mesh2d` with a custom material.
 
-## Sprite-sheet flipbooks — `bevy_spritesheet_animation 6.1.0`
+## Sprite-sheet flipbooks — `bevy_spritesheet_animation 8.0.1`
 
-`bevy_spritesheet_animation` (pins `bevy = "0.18"`) drives `TextureAtlas` index
-sequences from an animation library. Best fit: every instance plays the same frames
+`bevy_spritesheet_animation` 8.0.1 (pins `bevy = "^0.20"`) drives `TextureAtlas` index
+sequences from `Animation` assets. Best fit: every instance plays the same frames
 in order — explosions, hit-sparks, muzzle flashes.
 
 ```toml
 [dependencies]
-bevy = "0.18"
-bevy_spritesheet_animation = "6.1.0"
+bevy = "0.20"
+bevy_spritesheet_animation = "8.0.1"
 ```
 
-Key types: `SpritesheetAnimationPlugin`, `AnimationLibrary`, `SpritesheetAnimation`,
-`AnimationId`. Define clips once in `AnimationLibrary`, attach `SpritesheetAnimation`
-to the `Sprite` + `TextureAtlas` entity, and let the plugin drive the atlas index.
+Key types (8.x prelude): `SpritesheetAnimationPlugin`, `Spritesheet`, `AnimationBuilder`,
+`Animation` (an asset), `Clip`, `SpritesheetAnimation { animation: Handle<Animation>, .. }`.
+Build an `Animation` with `AnimationBuilder::new(spritesheet)...build()`, store it in
+`Assets<Animation>`, attach `SpritesheetAnimation` to the `Sprite` + `TextureAtlas`
+entity, and let the plugin drive the atlas index. The old `AnimationLibrary` /
+`AnimationId` API from 6.x is gone.
 
 What it does NOT do: individual particle physics. Every spawned entity plays the same
 frame sequence — there is no per-instance velocity or simulation.
 
-## Vector / SDF shapes — `bevy_vector_shapes 0.12.0`
+## Vector / SDF shapes — `bevy_vector_shapes 0.14.0`
 
-`bevy_vector_shapes` (pins `bevy = "0.18.0"`) renders GPU-accelerated circles, lines,
+`bevy_vector_shapes` 0.14.0 (pins `bevy = "^0.20"`) renders GPU-accelerated circles, lines,
 arcs, and polygons with SDF anti-aliasing.
 
 ```toml
 [dependencies]
-bevy = "0.18"
-bevy_vector_shapes = "0.12.0"
+bevy = "0.20"
+bevy_vector_shapes = "0.14.0"
 ```
 
 Key types: `Shape2dPlugin`, `ShapePainter`. Call `painter.circle(radius)`,
@@ -105,13 +108,12 @@ batches them into draw calls automatically.
 Good for: stylized SFX — shockwave rings, lightning bolts, lock-on reticles, force
 fields. The look is crisp and geometric rather than textured.
 
-> **`bevy_prototype_lyon` is abandoned for Bevy 0.18.** The latest published release
-> pins Bevy 0.17. Do not add it to a 0.18 project — it will not compile.
-> `bevy_vector_shapes` is the maintained replacement for 0.18.
+> **`bevy_prototype_lyon` lags a release.** 0.17.0 pins Bevy 0.19; there is no 0.20
+> build at the time of writing. `bevy_vector_shapes` already ships for 0.20.
 
 ## Trails
 
-No 0.18-ready trail crate exists. Two viable approaches:
+No 0.20-ready trail crate exists. Two viable approaches:
 
 - **`LineList` mesh history** — maintain a ring buffer of the trailing entity's recent
   world positions; rebuild a `LineList` or `TriangleStrip` `Mesh` each frame (or every
@@ -123,7 +125,9 @@ Both approaches are hand-rolled; choose based on how much visual polish the trai
 
 ## Decals
 
-No dedicated decal crate targets Bevy 0.18. The hand-roll approach:
+No dedicated decal crate targets Bevy 0.20. Bevy's own `ForwardDecal` / clustered
+decals (`bevy::pbr::decal`) cover projected decals on PBR geometry; the hand-roll below
+is for 2D or non-PBR cases. The hand-roll approach:
 
 1. Spawn a thin quad slightly offset from receiver geometry (or use a `DepthBiasState`).
 2. Assign a custom `Material` with `AlphaMode::Blend` (or `Premultiplied`) and a

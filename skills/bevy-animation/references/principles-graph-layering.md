@@ -4,7 +4,7 @@
 
 These three are about *layering* — running multiple animations in parallel, isolating
 which body parts each affects, and letting trailing parts catch up after the main
-action stops. Bevy 0.18's `AnimationGraph` with additive blend nodes and
+action stops. Bevy 0.20's `AnimationGraph` with additive blend nodes and
 `AnimationMask` is the toolkit.
 
 ---

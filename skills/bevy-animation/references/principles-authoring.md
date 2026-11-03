@@ -30,7 +30,7 @@ current playback time. The difference surfaces in asset size and motion quality:
   interpolation between the few keys doesn't match the animator's intended curve.
   Fix this by adding more breakdown keys in the DCC tool, or by replacing
   `AnimatableKeyframeCurve` (for procedural clips) with `UnevenSampleAutoCurve`
-  from `bevy::math::curve`, which fits a smoother interpolant through sparse samples.
+  from `bevy::curve`, which fits a smoother interpolant through sparse samples.
 
 ---
 
@@ -77,7 +77,7 @@ Bevy faithfully renders what you give it. However, the rendering setup does matt
   `StandardMaterial::emissive` — see the `bevy-pbr-materials` skill for material
   setup.
 - **Subsurface scattering** (skin, foliage) affects how light wraps around a character.
-  In Bevy 0.18, SSS is approximated; check `bevy-pbr-materials` for the available
+  In Bevy 0.20, SSS is approximated; check `bevy-pbr-materials` for the available
   shading model parameters.
 - **Pose hierarchy:** the most appealing poses have a clear primary line of action
   running through the whole body, with secondary curves counterpointing it. Author
@@ -91,7 +91,7 @@ Bevy faithfully renders what you give it. However, the rendering setup does matt
   export scale can produce a 100× mismatch in Bevy scenes. Check that the character
   is the expected size after spawning. The canonical fix is to apply all transforms
   in Blender before export (`Ctrl+A → All Transforms`) and use Bevy's
-  `SceneRoot` / `Transform::from_scale` to adjust if needed.
+  `WorldAssetRoot` (0.19+, was `SceneRoot`) / `Transform::from_scale` to adjust if needed.
 - **`Name` component is required for `AnimationTargetId::from_name`.** The glTF
   loader sets `Name` on bone entities automatically from the node names in the file.
   If you rename bones after export (e.g. in a post-process step), the
@@ -100,7 +100,7 @@ Bevy faithfully renders what you give it. However, the rendering setup does matt
 - **Broken normals after "Apply Transform" in Blender.** Applying transforms sometimes
   flips normals if the original scale included a negative axis. Always check normals
   (`Overlay → Face Orientation`) in Blender after applying and before exporting.
-- **`UnevenSampleAutoCurve` is in `bevy::math::curve`**, not the animation module.
+- **`UnevenSampleAutoCurve` is in `bevy::curve`**, not the animation module.
   Import it explicitly when using it to smooth sparse pose-to-pose keyframe data in
   procedural clips.
 

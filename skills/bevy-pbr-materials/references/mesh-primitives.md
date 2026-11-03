@@ -1,6 +1,6 @@
-# Bevy 0.18 — Mesh Primitives Reference
+# Bevy 0.20 — Mesh Primitives Reference
 
-Built-in `bevy_math` shapes and how to spawn them as meshes. See also
+Built-in `bevy_shape` primitives (split out of `bevy_math` in 0.20; all still in `bevy::prelude`) and how to spawn them as meshes. See also
 [lighting](lighting.md) and [custom-material](custom-material.md).
 
 ---
@@ -11,10 +11,16 @@ Built-in `bevy_math` shapes and how to spawn them as meshes. See also
 // Plane3d::new(normal: Vec3, half_size: Vec2)
 //
 // KEY GOTCHA: half_size is a Vec2 (half-width, half-height),
-// NOT a scalar. This caught the card_pickup rebuild off-guard.
+// NOT a scalar.
 let plane = meshes.add(Plane3d::new(Vec3::Y, Vec2::new(5.0, 5.0)));
 //                                              ^^^^^^^^^^^^^^^^^^
 //                                    width=10, height=10 in world units
+
+// Subdivided plane: 0.19 split `subdivisions` into X and Z counts.
+let grid = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(5.0)).mesh().subdivisions(8));
+let grid_xz = meshes.add(
+    Plane3d::new(Vec3::Y, Vec2::splat(5.0)).mesh().subdivisions_x(16).subdivisions_z(4),
+);
 ```
 
 - `normal`: the surface normal, given as a `Vec3` (converted to `Dir3` internally).
@@ -102,8 +108,7 @@ commands.spawn((
 ));
 ```
 
-This was documented as a discovery in the `3d_scene` rebuild. Forgetting this
-rotation leaves the disc standing upright like a coin.
+Forgetting this rotation leaves the disc standing upright like a coin.
 
 ---
 

@@ -27,6 +27,11 @@ Same as sphere but confined to a 2D circle (disk or ring).
 Fields: `center: ExprHandle`, `axis: ExprHandle` (normal to the circle plane),
 `radius: ExprHandle`, `dimension: ShapeDimension`.
 
+### `SetPositionBoxModifier` (0.20)
+
+Spawns inside or on the surface of a box. Same `dimension: ShapeDimension` switch as the
+sphere modifier.
+
 ### `SetPositionCone3dModifier`
 
 Spawns inside a truncated cone. Fields: `height`, `base_radius`, `top_radius`,
@@ -139,11 +144,11 @@ requires `AGE` + `LIFETIME`.
 
 ### `ParticleTextureModifier`
 
-Applies a texture to each particle. The struct has a `texture_slot: ExprHandle` field;
-the exact API for producing that handle from a texture path lives on `Module` (see
-[docs.rs/bevy_hanabi/0.18.0](https://docs.rs/bevy_hanabi/0.18.0/bevy_hanabi/) — the
-texture-slot helper has shuffled across minor versions). Pair this with a
-`Material` texture-binding setup on the `EffectAsset` for the actual image upload.
+Applies a texture to each particle. Since hanabi 0.20 the slot is a plain `u32` fixed at
+module build time: `ParticleTextureModifier::new(slot_index)`. Register the slot with
+`module.add_texture_slot(name, SlotDimension::D2)` and bind the image through the
+`EffectMaterial { images: vec![...] }` component on the effect entity. Passing an
+`ExprHandle` is the stale 0.18 shape. See [`hanabi-2d-vs-3d.md`](hanabi-2d-vs-3d.md).
 
 ### `OrientModifier`
 
@@ -157,6 +162,11 @@ let orient = OrientModifier {
     rotation: None,
 };
 ```
+
+### `KillFrustumModifier` (0.20)
+
+Kills particles outside the main camera frustum. Tag exactly one camera with
+`HanabiMainCamera` or the modifier has nothing to cull against.
 
 ### `FlipbookModifier`
 

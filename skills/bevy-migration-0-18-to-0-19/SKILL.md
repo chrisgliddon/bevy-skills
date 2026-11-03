@@ -12,7 +12,7 @@ metadata:
 
 # Bevy 0.18 → 0.19 — Migration cheat sheet
 
-**Released 2026-06-18.** Apply top-down — earlier items break later builds if skipped.
+**Released 2026-06-18.** Apply top-down — earlier items break later builds if skipped. Going all the way to 0.20? Finish this sheet, then `bevy-migration-0-19-to-0-20`.
 
 ## When to use this skill
 
@@ -115,6 +115,7 @@ release yet — **verify a 0.19-compatible version exists before bumping.** When
 
 ## See also
 
+- `bevy-migration-0-19-to-0-20` — the next release's catalogue.
 - `bevy-migration-0-17-to-0-18` — the previous release's rename catalogue.
 - `bevy-ui` — `TextFont`/`FontSize`/`FontSource` in everyday UI code.
 - `bevy-cargo-features` — feature-implication table and renames.

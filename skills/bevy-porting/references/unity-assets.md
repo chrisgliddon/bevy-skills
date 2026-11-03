@@ -1,10 +1,10 @@
-# bevy-porting — Unity → Bevy 0.18 asset pipeline
+# bevy-porting — Unity → Bevy 0.20 asset pipeline
 
 > Referenced from `bevy-porting/SKILL.md § Unity (priority)`.
 
 ## Concept map
 
-| Unity | Bevy 0.18 |
+| Unity | Bevy 0.20 |
 |---|---|
 | Prefab (visual hierarchy) | glTF scene loaded via `AssetServer` |
 | Prefab (data / spawner) | Rust fn that spawns a `Bundle` |
@@ -17,13 +17,13 @@
 
 ## Prefabs → spawnable entity templates
 
-Unity prefabs are serialised entity hierarchies. Bevy 0.18 has no native "prefab" type. Two idioms:
+Unity prefabs are serialised entity hierarchies. Bevy 0.20 has two native answers: glTF scenes spawned as `WorldAssetRoot` (the 0.18 `SceneRoot`, renamed in 0.19 when the old `bevy_scene` became `bevy_world_serialization`), and BSN templates (`bsn!`, the new `bevy::scene`). Two idioms:
 
 **Visual prefab** — bake to glTF (see `unity-scenes-gltf.md`), then load the scene:
 
 ```rust
-let prefab: Handle<Scene> = asset_server.load("prefabs/enemy.glb#Scene0");
-commands.spawn(SceneRoot(prefab));
+let prefab: Handle<WorldAsset> = asset_server.load("prefabs/enemy.glb#Scene0");
+commands.spawn(WorldAssetRoot(prefab));
 ```
 
 **Data prefab / spawner** — a Rust function that builds and returns an entity with the right components:
@@ -62,10 +62,10 @@ Prefer the spawner function for entities that need logic-driven variation; prefe
 | BC5 (normal maps, RG) | KTX2 + BC5 |
 | ASTC 6×6 (mobile) | KTX2 + ASTC 6×6 |
 
-Enable the `ktx2` and `zstd` Cargo features:
+Enable the `ktx2` and `zstd_rust` (or `zstd_c`) Cargo features — both are already in `3d_api`; there is no plain `zstd` feature in 0.20:
 
 ```toml
-bevy = { version = "0.18", features = ["ktx2", "zstd"] }
+bevy = { version = "0.20", features = ["ktx2", "zstd_rust"] }
 ```
 
 **sRGB vs Linear:** Unity's "sRGB (Color Texture)" maps to Bevy's default sRGB image format. Normal maps **must be imported as Linear** — Unity marks them automatically; in Bevy you must ensure the asset isn't tagged sRGB. glTFast handles this correctly when exporting from Unity. See `bevy-voxel-data` for KTX2 atlas workflows.
@@ -89,14 +89,14 @@ Addressables **groups** (batching assets for download chunks) map loosely to:
 Hot-reload of changed assets is enabled by adding the `file_watcher` feature:
 
 ```toml
-bevy = { version = "0.18", features = ["file_watcher"] }
+bevy = { version = "0.20", features = ["file_watcher"] }
 ```
 
 ## AssetBundle / SceneAssetBundle
 
 Bevy has no equivalent bundling format. Recommended approach:
 - Ship a flat or hierarchical directory of `.glb` / `.gltf` + `.ktx2` files.
-- For distribution builds, run `bevy_asset_processing` or a custom content-build script to compress and pack assets.
+- For distribution builds, enable the `asset_processor` feature (with `compressed_image_saver` for BCn/ASTC, or `compressed_image_saver_universal` for Basis UASTC — split in 0.20) or run a custom content-build script to compress and pack assets.
 
 ## Per-asset `.meta` files (GUIDs)
 

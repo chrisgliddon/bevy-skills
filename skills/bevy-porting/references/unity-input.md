@@ -1,4 +1,4 @@
-# bevy-porting — Unity Input → bevy_input (Bevy 0.18)
+# bevy-porting — Unity Input → bevy_input (Bevy 0.20)
 
 > Referenced from `bevy-porting/SKILL.md § Unity (priority)`.
 
@@ -6,7 +6,7 @@
 
 Unity ships two input APIs:
 
-| Unity API | Shape | Bevy 0.18 equivalent |
+| Unity API | Shape | Bevy 0.20 equivalent |
 |---|---|---|
 | Legacy `Input.GetKey(KeyCode.Space)` | Polling, global static | `Res<ButtonInput<KeyCode>>` — polling, injected |
 | New Input System (`InputAction`, `PlayerInput`) | Asset-driven binding map | No direct equivalent; build your own or use `leafwing-input-manager` |
@@ -70,12 +70,14 @@ It mirrors the Unity Input System's action-map model with a Bevy-native API.
 
 ## Gamepad
 
-In Bevy 0.18, `Gamepad` is a **component** on an `Entity` (spawned automatically on connection).
+In Bevy 0.20, `Gamepad` is a **component** on an `Entity` (spawned automatically on connection).
 `GamepadAxis` and `GamepadButton` are plain enums with direct variants — there are no `::new()`
 constructors and no separate `GamepadAxisType`/`GamepadButtonType` enums.
 
 ```rust
 use bevy::input::gamepad::{Gamepad, GamepadAxis, GamepadButton, GamepadConnectionEvent};
+// GamepadConnectionEvent is a buffered `Message` (0.17+): read it with
+// MessageReader, not the pre-0.17 EventReader.
 
 // Query the Gamepad component — one entity per connected controller.
 fn gamepad_system(gamepads: Query<(Entity, &Gamepad)>) {
@@ -91,7 +93,7 @@ fn gamepad_system(gamepads: Query<(Entity, &Gamepad)>) {
     }
 }
 
-fn on_gamepad_connect(mut events: EventReader<GamepadConnectionEvent>) {
+fn on_gamepad_connect(mut events: MessageReader<GamepadConnectionEvent>) {
     for ev in events.read() {
         match &ev.connection {
             bevy::input::gamepad::GamepadConnection::Connected { name, .. } => {
@@ -107,7 +109,7 @@ fn on_gamepad_connect(mut events: EventReader<GamepadConnectionEvent>) {
 
 Unity has `Gamepad.current` (implicit selection). Bevy has no "current" gamepad concept —
 iterate `Query<(Entity, &Gamepad)>` and track which entity is "active" yourself, e.g. by
-storing the `Entity` in a `Resource` when the first `GamepadConnectionEvent` fires.
+storing the `Entity` in a `Resource` when the first `GamepadConnectionEvent` arrives.
 
 ## Touch & mobile
 
@@ -141,7 +143,7 @@ fn mouse_system(
 }
 ```
 
-Bevy 0.18: cursor position is **per-`Window`** — query `Single<&Window>` (one window)
+Bevy 0.20: cursor position is **per-`Window`** — query `Single<&Window>` (one window)
 or `Query<&Window>` (multi-window). There is no global `Input.mousePosition` equivalent.
 
 ## Rebinding
@@ -149,7 +151,7 @@ or `Query<&Window>` (multi-window). There is no global `Input.mousePosition` equ
 Unity Input System has built-in interactive rebinding (`InputAction.PerformInteractiveRebinding`).
 Bevy has no equivalent. Options:
 
-- Hand-roll: listen for `KeyboardInput` events during a "listening" state, write the new
+- Hand-roll: read `KeyboardInput` messages (`MessageReader<KeyboardInput>`) during a "listening" state, write the new
   `KeyCode` back into your `Bindings` resource.
 - Use `leafwing-input-manager` — it includes a rebinding API.
 
@@ -158,4 +160,4 @@ Bevy has no equivalent. Options:
 - [`../SKILL.md`](../SKILL.md) — bevy-porting dispatcher
 - [`unity-animation.md`](unity-animation.md) — animation state machines driven by input state
 - [`unity-ui.md`](unity-ui.md) — wiring input to UI button interaction
-- [`bevy-ecs-systems/SKILL.md`](../../bevy-ecs-systems/SKILL.md) — `Res<T>`, `EventReader`, system ordering
+- [`bevy-ecs-systems/SKILL.md`](../../bevy-ecs-systems/SKILL.md) — `Res<T>`, `MessageReader`, system ordering

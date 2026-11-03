@@ -1,97 +1,105 @@
-# Bevy 0.18 — System ordering deep dive
+# Bevy 0.20 — System ordering deep dive
 
-## The problem: `SimpleExecutor` is gone
+## What happens with no ordering
 
-In Bevy 0.17 and earlier the `SimpleExecutor` ran systems in insertion order
-when no ordering was specified, masking many latent data-hazard bugs. In 0.18,
-the `SimpleExecutor` was removed. Any two systems that share mutable access to
-the same data and have no ordering relationship between them now produce a
-`ScheduleBuildError::Ambiguity` — a **build-time panic**.
+Bevy 0.17 and earlier had a `SimpleExecutor` that ran systems in insertion order. It was removed in 0.18. The default `MultiThreadedExecutor` runs any two systems with no edge between them in an arbitrary order, in parallel when their data access allows.
 
-You must explicitly declare the relationship or accept that it is intentional.
+Two unordered systems that write the same data are an **ambiguity**. By default Bevy ignores it (`ScheduleBuildSettings::ambiguity_detection` is `LogLevel::Ignore`). It does not panic. Declare the relationship, or opt into detection (below).
 
 ## System-level ordering
 
 ```rust
-// B always runs after A in the same schedule.
-app.add_systems(Update, (a, b.after(a)));
+// draw_hud always runs after read_input in the same schedule.
+app.add_systems(Update, (read_input, draw_hud.after(read_input)));
 
 // Equivalent reversed form:
-app.add_systems(Update, (a.before(b), b));
+app.add_systems(Update, (read_input.before(draw_hud), draw_hud));
 ```
-
-Both `.before(other)` and `.after(other)` are valid. Pick whichever reads more
-naturally at the call site.
 
 ## `.chain()` on system tuples
 
-`.chain()` is syntactic sugar for `.before` on each consecutive pair:
-
 ```rust
-// These three run in order: validate → consume → dispatch.
+// validate → consume → dispatch, in that order.
 app.add_systems(Update, (validate, consume, dispatch).chain());
 ```
 
 ## Set-level ordering (preferred)
 
-Order sets in `configure_sets`; individual systems in those sets inherit the
-ordering automatically. This is more maintainable than chaining every system
-individually.
-
 ```rust
 app.configure_sets(Update, (MySet::Input, MySet::Logic, MySet::Output).chain());
 ```
 
-See [system-sets.md](system-sets.md) for the full configure_sets reference.
+Systems inherit their set's edges. See [system-sets.md](system-sets.md).
+
+## Weak ordering (0.20)
+
+`.chain_weak()`, `.before_weak(set)` and `.after_weak(set)` keep an edge only between systems whose tracked ECS access conflicts. Non-conflicting systems in adjacent sets may run in any order or in parallel.
+
+```rust
+app.configure_sets(Update, (GameLoop::Input, GameLoop::Simulate).chain_weak());
+app.add_systems(Update, draw_hud.after_weak(GameLoop::Input));
+```
+
+Rules the scheduler applies:
+- A system that produces deferred effects (`Commands`) is always treated as conflicting with later systems; the `ApplyDeferred` sync point stays.
+- Exclusive systems (`&mut World`) always conflict.
+- Dependencies the scheduler cannot see (channels, atomics, interior mutability behind `Res<T>`, `NonSend` state) are **not** preserved. Use `.chain()` or an explicit `.after(system)` for those.
+
+Bevy's own `PostUpdate` UI sets (`UiSystems`), the `Render` schedule's `RenderSystems` sets, `RenderGraph`, `Core2d`/`Core3d` pass sets and `ExtractSchedule` sets switched to weak ordering in 0.20. If a custom system you placed in one of those sets relied on a hidden dependency, add `.after(the_producer)`.
 
 ## Accepting intentional ambiguity
 
-When two systems genuinely do not conflict in practice but the analyzer cannot
-prove it, use `.ambiguous_with(other)` to silence the error:
-
 ```rust
-app.add_systems(
-    Update,
-    (audio_tick.ambiguous_with(render_tick), render_tick),
-);
+app.add_systems(Update, (draw_hud.ambiguous_with(read_input), read_input));
 ```
 
-Use this sparingly — it hides real hazards. Prefer explicit ordering whenever
-the order matters or the systems share data.
+`.ambiguous_with_all()` silences every ambiguity for one system. Use it during prototyping only.
 
-You can also use `.ambiguous_with_all()` to suppress all ambiguity warnings for
-a given system (useful during prototyping; clean up before shipping).
+## Detecting ambiguity
 
-## Debugging `ScheduleBuildError::Ambiguity`
-
-The error message names both systems and the conflicting component/resource.
-Steps:
-1. Read the error — it tells you exactly which two systems and which data.
-2. Decide if the order matters. If yes, add `.before`/`.after`.
-3. If the order genuinely doesn't matter (e.g. two read-only stats collectors),
-   add `.ambiguous_with(other)`.
-4. If one system should be in a separate set, restructure with `configure_sets`.
-
-Enable extra diagnostics with:
 ```rust
+use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
+
 app.edit_schedule(Update, |schedule| {
-    schedule.set_build_settings(
-        bevy::ecs::schedule::ScheduleBuildSettings {
-            ambiguity_detection: LogLevel::Warn, // or Error
-            ..default()
-        },
-    );
+    schedule.set_build_settings(ScheduleBuildSettings {
+        ambiguity_detection: LogLevel::Warn, // or Error to panic at build time
+        ..default()
+    });
 });
 ```
 
+`LogLevel::Error` surfaces as `ScheduleBuildError::Ambiguity(AmbiguousSystemConflictsWarning)`. The message names both systems and the conflicting component or resource. Then:
+1. Decide whether the order matters. If yes, add `.before`/`.after`.
+2. If it does not (two read-only stats collectors), add `.ambiguous_with(other)`.
+3. If one belongs in another set, restructure with `configure_sets`.
+
+## Schedule randomization (0.20, `debug` feature)
+
+With the `debug` feature on `bevy`, `ScheduleBuildSettings` has `shuffle_seed: Option<u64>`. Setting it shuffles systems while respecting explicit edges. Run your tests under several seeds to prove that every real dependency has an edge. Log the seed so a failure is reproducible. If you exhaustively list the fields of `ScheduleBuildSettings`, add `shuffle_seed: None`.
+
+## Choosing an executor (0.19)
+
+`ExecutorKind` is gone. Pass an executor instance:
+
+```rust
+use bevy::ecs::schedule::SingleThreadedExecutor;
+
+app.edit_schedule(Update, |schedule| {
+    schedule.set_executor(SingleThreadedExecutor::new());
+});
+```
+
+`SystemExecutor` is a public trait, so you can implement your own. There is no `get_executor_kind` replacement.
+
 ## Cross-schedule ordering
 
-`.before`/`.after` only work within the same schedule. To sequence work across
-schedules (e.g. `FixedUpdate` → `Update`), use Bevy's message/event system or
-shared resources as a handoff. Schedules have a fixed execution order defined by
-the `MainScheduleOrder` resource — you cannot reorder schedules with `.before`.
+`.before`/`.after` only work within one schedule. Schedules run in the order held by the `MainScheduleOrder` resource. To sequence work across schedules (`FixedUpdate` → `Update`), hand data over with a message or a resource.
+
+## Other errors you may match on
+
+`ScheduleBuildError` variants since 0.18: `HierarchySort(DiGraphToposortError::Loop(..))`, `DependencySort(DiGraphToposortError::Cycle(..))`, `CrossDependency`, `SetsHaveOrderButIntersect`, `SystemTypeSetAmbiguity`, `Uninitialized`, `Elevated(ScheduleBuildWarning)`. The older `HierarchyLoop` and `DependencyCycle` names are gone.
 
 ## See also
 
 - [system-sets.md](system-sets.md) — set-level ordering via `configure_sets`.
-- [runtime-removal.md](runtime-removal.md) — removing sets at runtime, which also affects ordering graphs.
+- [runtime-removal.md](runtime-removal.md) — removing sets at runtime, which rewrites ordering edges.

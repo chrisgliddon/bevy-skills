@@ -1,55 +1,50 @@
 ---
 name: bevy-custom-assets
-description: Use when implementing `AssetLoader` for a custom file format, depending on other assets via `LoadContext::loader().with_settings(..).load(..)`, hitting the 0.18 requirement to `#[derive(TypePath)]` on the loader, or using `reader.read_to_end(..)` / `seekable()` async access. Covers Bevy 0.18 custom asset loaders.
+description: Use when implementing `AssetLoader` for a custom format, deriving `TypePath` on the loader, loading dependencies through `LoadContext::load` or `LoadContext::load_builder().with_settings(..).load(..)`, marking handle fields `#[dependency]`, reading with `Reader::read_to_end`, seeking via `Reader::seekable` / `AsyncSeekExt`, or implementing the required `Reader::seekable` on your own reader in Bevy 0.20.
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:
   tier: "2"
   area: asset
-  bevy_version: "0.18"
+  bevy_version: "0.20"
 ---
 
-# Bevy 0.18 — Custom asset loaders
+# Bevy 0.20 — Custom asset loaders
 
 ## When to use this skill
 
-- Loading a custom binary or text format (proprietary game data, sidecar configs, etc.).
-- Producing an asset that depends on other assets (e.g. a level loader that pulls referenced textures).
-- Needing async access to the underlying file (`reader.read_to_end`, `reader.seekable()`).
-- Compiler error: "`MyLoader: TypePath` is not implemented" — 0.18 made `TypePath` mandatory on loaders.
+- Loading a custom binary or text format (game data, sidecar configs).
+- Producing an asset that depends on other assets (a level that references textures).
+- Loading a dependency with settings (`is_srgb = false`) or by erased type.
+- Random access into the file (`reader.seekable()`), or writing your own `Reader`.
+- Compiler errors: "`MyLoader: TypePath` is not implemented", "no method `loader`", "missing trait item `seekable`".
 
 ## Canonical pattern
 
 ```rust
 use bevy::asset::io::Reader;
 use bevy::asset::{Asset, AssetApp, AssetLoader, LoadContext};
+use bevy::image::ImageLoaderSettings;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
-use serde::Deserialize;
-use thiserror::Error;
 
-#[derive(Asset, TypePath, Debug, Deserialize)]
+#[derive(Asset, TypePath, Debug)]
 pub struct LevelDef {
     pub name: String,
     pub gravity: f32,
-    pub thumbnail: String, // path to a referenced texture asset
+    #[dependency] // counted toward `LoadedWithDependencies`
+    pub thumbnail: Handle<Image>,
+    #[dependency]
+    pub normal_map: Handle<Image>,
 }
 
-#[derive(TypePath)] // 0.18: required on the loader itself.
+#[derive(TypePath)] // required on the loader itself since 0.18
 pub struct LevelLoader;
-
-#[derive(Debug, Error)]
-pub enum LevelLoaderError {
-    #[error("io: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("parse: {0}")]
-    Parse(#[from] ron::error::SpannedError),
-}
 
 impl AssetLoader for LevelLoader {
     type Asset = LevelDef;
     type Settings = ();
-    type Error = LevelLoaderError;
+    type Error = BevyError; // any `Error` converts via `?`
 
     async fn load(
         &self,
@@ -57,20 +52,38 @@ impl AssetLoader for LevelLoader {
         _settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        // Pull the whole file. For very large files prefer `seekable()`.
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let level: LevelDef = ron::de::from_bytes(&bytes)?;
+        let text = String::from_utf8(bytes)?;
 
-        // Pull in a referenced asset so it loads alongside this one.
-        // The resulting handle ends up tracked as a dependency.
-        let _: Handle<Image> = load_context.load(&level.thumbnail);
-
+        let mut level = LevelDef {
+            name: String::new(),
+            gravity: 9.81,
+            thumbnail: Handle::default(),
+            normal_map: Handle::default(),
+        };
+        for line in text.lines() {
+            let Some((key, value)) = line.split_once('=') else { continue };
+            match key.trim() {
+                "name" => level.name = value.trim().to_owned(),
+                "gravity" => level.gravity = value.trim().parse()?,
+                // Dependencies go through `LoadContext`, never `AssetServer`.
+                "thumbnail" => level.thumbnail = load_context.load(value.trim().to_owned()),
+                // 0.19+: settings, type erasure, untyped loads use `load_builder()`.
+                "normal_map" => {
+                    level.normal_map = load_context
+                        .load_builder()
+                        .with_settings(|s: &mut ImageLoaderSettings| s.is_srgb = false)
+                        .load(value.trim().to_owned());
+                }
+                _ => {}
+            }
+        }
         Ok(level)
     }
 
     fn extensions(&self) -> &[&str] {
-        &["level.ron"]
+        &["level"]
     }
 }
 
@@ -83,37 +96,95 @@ impl Plugin for LevelLoaderPlugin {
 }
 ```
 
-## Asking the reader for random access
+## Random access
 
 ```rust
-// 0.18: bevy::asset::io::Reader gained `seekable()`.
-# use bevy::asset::io::Reader;
-# async fn _example(reader: &mut dyn Reader) -> std::io::Result<()> {
-match reader.seekable() {
-    Ok(seekable) => {
-        // SeekableReader supports `seek(SeekFrom::Start(n))`, `seek(SeekFrom::End(-n))`, etc.
-        let _ = seekable;
+use bevy::asset::io::{Reader, ReaderNotSeekableError};
+use bevy::asset::AsyncSeekExt;
+
+async fn read_footer(reader: &mut dyn Reader) -> std::io::Result<[u8; 8]> {
+    let mut footer = [0u8; 8];
+    match reader.seekable() {
+        Ok(seekable) => {
+            // `SeekableReader: Reader + AsyncSeek`; `AsyncSeekExt` is re-exported by bevy::asset.
+            seekable.seek(std::io::SeekFrom::End(-8)).await?;
+            let mut buf = Vec::new();
+            seekable.read_to_end(&mut buf).await?;
+            footer.copy_from_slice(&buf);
+        }
+        Err(ReaderNotSeekableError) => {
+            // e.g. HTTP source: stream the whole file instead.
+            let mut buf = Vec::new();
+            reader.read_to_end(&mut buf).await?;
+            footer.copy_from_slice(&buf[buf.len() - 8..]);
+        }
     }
-    Err(_) => {
-        // Source isn't seekable (e.g. HTTP backend). Fall back to streaming.
-    }
+    Ok(footer)
 }
-# Ok(())
-# }
 ```
 
-## Gotchas (0.18)
+## Implementing `Reader` yourself (0.19+ shape)
 
-- **`#[derive(TypePath)]` is required on the loader struct** (not just the asset). 0.18 enforces this so loaders can be reflected. Without it: "`MyLoader: TypePath` is not implemented".
-- **`LoadContext::path()` returns `AssetPath`**, not `&Path`. To get the platform path, use `.path()` on it: `ctx.path().path()`.
-- **`LoadContext::asset_bytes()` is gone.** Use `let mut bytes = Vec::new(); reader.read_to_end(&mut bytes).await?;` inside the `load` async fn, or `reader.seekable()` for random access.
-- **Dependencies must be loaded through `LoadContext`**. `asset_server.load(...)` from inside a loader does **not** register the result as a dependency of the asset being built — use `load_context.load(...)` so `AssetEvent::LoadedWithDependencies` fires correctly.
-- **`AssetLoader` is `async`** but you can't `tokio::spawn` inside it — the executor is Bevy's, not Tokio's. Use `bevy::tasks::futures_lite` or `bevy::tasks::AsyncComputeTaskPool` for compute-heavy work.
-- **`#[derive(Asset)]` is required on the asset type** and combined with `TypePath`. The asset's `Settings` type must be `Default + Serialize + DeserializeOwned + Send + Sync + 'static` to participate in `.meta` files.
-- **Extensions are matched on the full suffix.** `"level.ron"` matches `foo.level.ron` but not `foo.ron` — useful for disambiguating from generic RON.
+```rust
+use bevy::asset::io::{Reader, ReaderNotSeekableError, SeekableReader};
+use bevy::tasks::futures_lite::io::Cursor;
+use bevy::tasks::futures_lite::{AsyncRead, AsyncSeek};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+pub struct MemReader(Cursor<Vec<u8>>);
+
+impl AsyncRead for MemReader {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8])
+        -> Poll<std::io::Result<usize>> {
+        Pin::new(&mut self.0).poll_read(cx, buf)
+    }
+}
+
+impl AsyncSeek for MemReader {
+    fn poll_seek(mut self: Pin<&mut Self>, cx: &mut Context<'_>, pos: std::io::SeekFrom)
+        -> Poll<std::io::Result<u64>> {
+        Pin::new(&mut self.0).poll_seek(cx, pos)
+    }
+}
+
+impl Reader for MemReader {
+    // 0.19+: required. `AsyncSeekForward` is gone.
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        Ok(self) // return `Err(ReaderNotSeekableError)` if you cannot seek
+    }
+}
+```
+
+## Gotchas
+
+### 0.19 → 0.20
+
+- **`LoadDirectError::LoadError { error }` is `Box<AssetLoadError>`** and `AssetLoadError::RequestedHandleTypeMismatch` wraps a `Box<RequestedHandleTypeMismatchError>`. Match through the box.
+- **`NestedLoadBuilder` immediate loads** are `async`: `load_value(path).await`, `load_erased_value(type_id, path)`, `load_untyped_value(path)`, `load_value_from_reader(path, reader)`. They return `Result<LoadedAsset<A>, LoadDirectError>`.
+- **`UntypedHandle::meta_transform()` is deleted.** Settings travel only through `with_settings` closures.
+
+### 0.18 → 0.19
+
+- **`LoadContext::loader()` is `load_builder()`** and `NestedLoader` is `NestedLoadBuilder`. Stale output: `ctx.loader().with_settings(..).load(p)`. Now: `ctx.load_builder().with_settings(..).load(p)`. `with_dynamic_type(id).load(p)` → `load_erased(id, p)`; `with_unknown_type().load(p)` → `load_untyped(p)`; `immediate().load(p)` → `load_value(p).await`.
+- **`Reader` impls must implement `seekable`.** `AsyncSeekForward` is deleted; implement `AsyncSeek` (`poll_seek`) and return `Ok(self)`. Callers of the old trait use `AsyncSeekExt::seek(SeekFrom::Current(n))`.
+- **`AssetSaver::save` gained a lifetime and a path:** `asset: SavedAsset<'_, '_, A>, settings: &S, asset_path: AssetPath<'_>`.
+- **Resources are components.** A loader plugin that inserts a resource holding handles is fine; broad queries can now conflict with it (`bevy-ecs-components`).
+
+### Still true since 0.18
+
+- **`#[derive(TypePath)]` on the loader struct**, not only the asset. `AssetLoader: TypePath + Send + Sync + 'static`.
+- **`LoadContext::asset_bytes()` is gone.** Use `reader.read_to_end(&mut bytes).await?` or `load_context.read_asset_bytes(path).await?` for a sibling file.
+- **Dependencies must go through `LoadContext`.** `asset_server.load` inside a loader does not register the dependency, so `LoadedWithDependencies` fires early. Mark handle fields `#[dependency]` so `#[derive(Asset)]` visits them.
+- **`type Error` only needs `Into<BevyError>`.** `BevyError` itself is the shortest choice; `thiserror` enums still work.
+- **No Tokio inside `load`.** The executor is Bevy's; use `bevy::tasks::futures_lite` or `AsyncComputeTaskPool`.
+- **`Settings` must be `Default + Serialize + DeserializeOwned`** to round-trip through `.meta` files.
+- **Extensions match on the full suffix.** `"level.ron"` matches `foo.level.ron`, not `foo.ron`.
+- **Do not import `AsyncReadExt` next to `dyn Reader`.** Both traits define `read_to_end`; the call becomes ambiguous. `Reader::read_to_end` is inherent to the trait.
 
 ## See also
 
-- `bevy-assets` — using a `Handle<MyAsset>` once it's loaded.
+- `bevy-assets` — using the `Handle<LevelDef>` once loaded, `load_builder` on `AssetServer`.
 - `bevy-voxel-data` — RON-driven asset patterns.
-- `bevy-migration-0-17-to-0-18` — `LoadContext::asset_bytes` removal.
+- `bevy-migration-0-18-to-0-19` — `loader()` → `load_builder()`, `Reader::seekable`.
+- `bevy-migration-0-19-to-0-20` — boxed error variants.

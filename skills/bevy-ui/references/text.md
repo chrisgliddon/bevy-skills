@@ -1,24 +1,27 @@
-# Bevy 0.18 UI — Text
+# Bevy 0.20 UI — Text
 
-Bevy 0.18 uses a **split-component model** for text. There is no `TextBundle`.
-Instead, a text entity is a bundle of separate components, each with a single
-responsibility.
+Bevy uses a split-component model for text. There is no `TextBundle`. Since 0.19 layout runs on Parley (not cosmic-text); the public component API changed in two places: `TextFont::font` and `TextFont::font_size`.
 
 ## Quick reference
 
 | Component | Purpose |
 |---|---|
-| `Text::new("hello")` | The string content of a text entity. |
-| `TextFont { font, font_size, .. }` | Font handle + size (in logical pixels). |
+| `Text::new("hello")` | String content. Derefs to `String` (`**text = "x".into()`). |
+| `TextFont { font: FontSource, font_size: FontSize, .. }` | Font selection and size. |
+| `FontSource::Handle(h)` / `handle.into()` | Font by asset handle. |
+| `FontSource::family("Fira Sans")` | Font by family name. Loaded fonts register their embedded family name (0.20). |
+| `FontSource::sans_serif()`, `::serif()`, `::monospace()` | Generic families (`GenericFontFamily`). 0.19's `FontSource::SansSerif` variants are gone. |
+| `FontSize::Px(f32)`, `::Rem(f32)`, `::Vw`, `::Vh`, `::VMin`, `::VMax` | Size units. Default is `Rem(1.)` (0.20). |
 | `TextColor(Color)` | Foreground colour. |
-| `TextShadow::default()` | Adds a subtle drop shadow (offset `(1,1)` in 0.18). |
-| `TextLayout` | Wrapping and alignment; optional. |
+| `TextShadow { offset, color }` | Drop shadow; `default()` is a 1 px offset. |
+| `TextLayout::justify(Justify::Center)` | Alignment / wrapping. Was `new_with_justify` before 0.19. |
+| `RemSize(pub f32)` resource | Base for `FontSize::Rem` and `Val::Rem`. Default 20. |
 
-`Text`, `TextFont`, `TextColor`, and `TextShadow` are all in `bevy::prelude`.
+All of these are in `bevy::prelude`.
 
 ## Common patterns
 
-### Inline text child (the canonical pattern)
+### Inline text child
 
 ```rust
 use bevy::prelude::*;
@@ -27,8 +30,8 @@ fn text_label(asset_server: &AssetServer) -> impl Bundle {
     (
         Text::new("Hello, Bevy!"),
         TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 24.0,
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+            font_size: FontSize::Px(24.0),
             ..default()
         },
         TextColor(Color::WHITE),
@@ -41,73 +44,55 @@ fn text_label(asset_server: &AssetServer) -> impl Bundle {
 
 ```rust
 use bevy::prelude::*;
-use bevy::text::{Justify, TextLayout};
 
-fn wrapped_text(asset_server: &AssetServer) -> impl Bundle {
+fn wrapped_text() -> impl Bundle {
     (
         Text::new("A longer paragraph that wraps across lines."),
-        TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 18.0,
-            ..default()
-        },
+        TextFont { font_size: FontSize::Px(18.0), ..default() },
         TextColor(Color::srgb(0.8, 0.8, 0.8)),
-        TextLayout::new_with_justify(Justify::Left),
+        TextLayout::justify(Justify::Left),
     )
 }
 ```
 
-Note: `Justify` (not `JustifyText`) is the 0.18 enum. The `JustifyText` name was retired in an earlier release — stale-training-data alert.
-
-### Replacing the default font (diplopod idiom)
-
-This pattern lets every `TextFont { ..default() }` entity in the app automatically
-use a custom font, without threading an `AssetServer` handle everywhere.
+### Generic and named families
 
 ```rust
 use bevy::prelude::*;
 
-/// Stored until the font asset has loaded.
-#[derive(Resource)]
-struct DefaultFontHandle(Handle<Font>);
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/MyFont-Regular.ttf");
-    commands.insert_resource(DefaultFontHandle(font));
+fn monospace_readout() -> impl Bundle {
+    (
+        Text::new("fps: 60"),
+        TextFont { font: FontSource::monospace(), font_size: FontSize::Rem(0.8), ..default() },
+    )
 }
 
-/// Runs every frame while `DefaultFontHandle` exists; removes itself when done.
-fn set_default_font(
-    mut commands: Commands,
-    mut fonts: ResMut<Assets<Font>>,
-    handle: Res<DefaultFontHandle>,
-) {
-    // `fonts.remove` returns `None` if the asset hasn't loaded yet — safe to
-    // call every frame until it succeeds.
-    if let Some(font) = fonts.remove(&handle.0)
-        && fonts.insert(&TextFont::default().font, font).is_ok()
-    {
-        commands.remove_resource::<DefaultFontHandle>();
-    }
+fn brand_heading() -> impl Bundle {
+    (
+        Text::new("Title"),
+        // Works once any font asset whose embedded family is "Fira Sans" has loaded.
+        TextFont { font: FontSource::family("Fira Sans"), font_size: FontSize::Px(40.0), ..default() },
+    )
 }
-
-// In App::new():
-//   .add_systems(Update, set_default_font.run_if(resource_exists::<DefaultFontHandle>))
 ```
 
-The key insight: `TextFont::default().font` is the handle Bevy uses for its
-built-in font. Inserting your font at that handle ID replaces it globally.
+### Scaling all default-size text at once
+
+```rust
+use bevy::prelude::*;
+
+fn bump_text_scale(mut rem: ResMut<RemSize>) {
+    rem.0 = 24.0; // every TextFont left at FontSize::Rem(1.) now renders at 24 px
+}
+```
 
 ## Pitfalls
 
-- **No `TextBundle` in 0.18.** Pre-0.17 tutorials use `TextBundle { style, text, .. }`.
-  This type does not exist in 0.18. Spawn the components individually or as a tuple bundle.
-
-- **`Text` deref.** `Text` derefs to `String` via `Deref` / `DerefMut`. To update
-  the text in a system: `**text = "New string".to_string();`.
-
-- **Font size units.** `font_size` is logical pixels. On HiDPI displays the
-  engine scales automatically via `UiScale`.
-
-- **`TextShadow` is a unit-like default.** `TextShadow::default()` gives a `(1.0, 1.0)`
-  pixel shadow in dark grey. To customise, construct `TextShadow { offset: Vec2::new(2.0, 2.0), color: Color::BLACK }`.
+- **`font: handle` and `font_size: 33.0` are 0.18 syntax.** 0.19+ needs `handle.into()` and `FontSize::Px(33.0)`. This is the most common stale-LLM error in UI code.
+- **`FontSource::SansSerif` is 0.19-only.** 0.20 uses `FontSource::sans_serif()` or `GenericFontFamily::SansSerif.into()`.
+- **Default size follows `RemSize` (0.20).** `TextFont::default()` is `Rem(1.)`, not `Px(20.)`. Pin `FontSize::Px(..)` when a size must stay fixed.
+- **System fonts need `system_font_discovery`.** Enable the Bevy feature (Linux also needs `libfontconfig`). Without it only bundled font assets and the built-in default resolve.
+- **`Font::try_from_bytes` → `Font::from_bytes(bytes)` (0.19), and it no longer takes a family name (0.20).**
+- **Span traits consolidated (0.19).** `TextRoot`, `TextSpanAccess`, `TextSpanComponent` are one trait, `TextSection`; `read_span` / `write_span` are `get_text` / `get_text_mut`.
+- **No `TextBundle`.** Spawn the components as a tuple.
+- **The 0.18 "replace the default font" idiom (`fonts.insert(&TextFont::default().font, font)`) is not verified on 0.20.** `TextFont::default().font` is now `FontSource::Handle(Handle::default())`. Prefer passing a handle or using `FontSource::family`.

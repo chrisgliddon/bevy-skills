@@ -1,99 +1,76 @@
-# Bevy 0.18 UI — Accessibility (`InputFocus`)
+# Bevy 0.20 UI — Accessibility and focus
 
 ## Quick reference
 
 | Item | Purpose |
 |---|---|
-| `InputFocus` | Resource tracking which entity currently has logical focus. |
-| `bevy::input_focus::InputFocus` | Full import path. |
-| `app.init_resource::<InputFocus>()` | Required — not inserted by `DefaultPlugins`. |
-| `input_focus.set(entity)` | Give focus to an entity (e.g. on `Pressed` / `Hovered`). |
-| `input_focus.clear()` | Clear focus (e.g. on `Interaction::None`). |
-| `input_focus.get()` | Returns `Option<Entity>` — the currently focused entity. |
-
-## Why `InputFocus` exists
-
-Bevy integrates with platform accessibility trees (AT — screen readers, switch
-access, magnification software) via `bevy_a11y`. The `InputFocus` resource is the
-bridge: when you call `input_focus.set(entity)`, Bevy notifies the AT that focus
-has moved to that entity. Without this, keyboard-only or screen-reader users
-receive no feedback when a button is hovered or pressed.
-
-`InputFocus` also drives Bevy's internal focus-dispatch system: `KeyboardInput`
-events are routed to the focused entity rather than broadcast globally.
+| `bevy::input_focus::InputFocus` | Resource holding the logically focused entity. Inserted by `InputFocusPlugin`, part of `DefaultPlugins` since 0.19. |
+| `input_focus.get()` | `Option<Entity>`. |
+| `input_focus.set(entity, FocusCause::Pressed)` | Move focus. Takes a `FocusCause` since 0.19 (fields went private). |
+| `input_focus.clear()` | Drop focus. |
+| `FocusCause::{Navigated, Pressed, Auto}` | `Auto` is new in 0.20 (emitted by `AutoFocus`). |
+| `bevy::input_focus::AutoFocus` | Marker: entity takes focus when spawned. |
+| `bevy::input_focus::tab_navigation::{TabNavigationPlugin, TabGroup, TabIndex}` | Tab / Shift-Tab keyboard navigation. |
+| `AccessibleLabel` | In `bevy::prelude`. Spoken name for the accessibility tree. |
+| `ui_widgets::Button` | Requires `AccessibilityNode(Role::Button)` — nothing to do by hand. |
 
 ## Common patterns
 
-### Minimal setup
+### Keyboard-navigable button
 
 ```rust
-use bevy::{input_focus::InputFocus, prelude::*};
+use bevy::{
+    input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
+    prelude::*,
+    ui_widgets::{observe, Activate, Button},
+};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .init_resource::<InputFocus>() // must be explicit
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
         .run();
 }
-```
 
-### Setting and clearing focus in an interaction system
-
-```rust
-use bevy::{input_focus::InputFocus, prelude::*};
-
-fn button_system(
-    mut input_focus: ResMut<InputFocus>,
-    mut query: Query<(Entity, &Interaction, &mut Button), Changed<Interaction>>,
-) {
-    for (entity, interaction, mut button) in &mut query {
-        match *interaction {
-            Interaction::Pressed | Interaction::Hovered => {
-                input_focus.set(entity);
-                button.set_changed(); // notify a11y system
-            }
-            Interaction::None => {
-                input_focus.clear();
-            }
-        }
-    }
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
+    commands.spawn((
+        Node { width: percent(100), height: percent(100), ..default() },
+        TabGroup::default(),
+        children![(
+            Button,
+            TabIndex(0),
+            AccessibleLabel("Start game".into()),
+            Node { width: px(160), height: px(48), ..default() },
+            observe(|_: On<Activate>| info!("activated by click, Enter, or Space")),
+        )],
+    ));
 }
 ```
 
-### Reading the current focus (e.g. for custom keyboard handling)
+### Reading and moving focus by hand
 
 ```rust
-use bevy::{input_focus::InputFocus, prelude::*};
+use bevy::{input_focus::{FocusCause, InputFocus}, prelude::*};
 
-fn keyboard_dispatch(
-    input_focus: Res<InputFocus>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+fn focus_first_button(
+    mut focus: ResMut<InputFocus>,
+    buttons: Query<Entity, With<bevy::ui_widgets::Button>>,
 ) {
-    if keyboard.just_pressed(KeyCode::Enter) {
-        if let Some(focused) = input_focus.get() {
-            println!("Enter pressed while {focused:?} is focused");
-        }
+    if focus.get().is_none()
+        && let Some(first) = buttons.iter().next()
+    {
+        focus.set(first, FocusCause::Navigated);
     }
 }
 ```
 
 ## Pitfalls
 
-- **`init_resource::<InputFocus>()` is NOT automatic.** `DefaultPlugins` does not
-  insert `InputFocus`. If you query `ResMut<InputFocus>` without initializing it,
-  the app will panic at schedule-build with a missing resource error.
-
-- **`input_focus` path changed in 0.18.** The correct import is
-  `bevy::input_focus::InputFocus`. It is *not* re-exported from `bevy::prelude`
-  in 0.18 — you must import it explicitly.
-
-- **`button.set_changed()` and `InputFocus` work together.** Calling only one
-  without the other may result in the AT being notified but not updating, or
-  updating without the button's accessibility node being refreshed. Always call
-  both in `Pressed` and `Hovered` arms.
-
-- **Clearing focus at `Interaction::None` is intentional.** If you do not clear
-  focus when the cursor leaves a button, the AT will still consider that button
-  focused even when no button is visually highlighted. This is confusing to AT users.
+- **Do not `init_resource::<InputFocus>()`.** 0.18 required it; 0.19+ `DefaultPlugins` inserts it. Re-initialising silently resets focus state.
+- **`input_focus.0` no longer compiles (0.19).** Use `get` / `set` / `clear`.
+- **Exhaustive `FocusCause` matches break in 0.20.** Add the `Auto` arm.
+- **`button.set_changed()` is obsolete.** It belonged to the deprecated `ui::widget::Button`. `ui_widgets::Button` ships its own `AccessibilityNode`.
+- **Escape propagates out of text inputs (0.20).** A focused `EditableText` + `TextInput` clears focus on Escape and lets the event bubble, so a dialog's Escape handler fires on the same press.
+- **`bevy_picking` no longer enables `bevy_input_focus` (0.19).** Use the `ui` feature collection; it carries `ui_picking` and `bevy_input_focus`.
+- **`InputFocus` is not in the prelude.** Import `bevy::input_focus::InputFocus`.

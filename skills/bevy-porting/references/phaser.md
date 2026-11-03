@@ -1,12 +1,12 @@
-# bevy-porting — Phaser 3 → Bevy 0.18
+# bevy-porting — Phaser 3 → Bevy 0.20
 
 > Referenced from `bevy-porting/SKILL.md § Engine coverage`.
 
-Phaser 3 is a scene-based 2D framework: each `Phaser.Scene` subclass has `preload()`, `create()`, and `update()` methods, a built-in physics engine (Arcade or Matter.js), tweens, a sprite-sheet animation manager, and a managed input system. This reference maps each of those subsystems to Bevy 0.18 equivalents.
+Phaser 3 is a scene-based 2D framework: each `Phaser.Scene` subclass has `preload()`, `create()`, and `update()` methods, a built-in physics engine (Arcade or Matter.js), tweens, a sprite-sheet animation manager, and a managed input system. This reference maps each of those subsystems to Bevy 0.20 equivalents.
 
 ## Concept map
 
-| Phaser 3 | Bevy 0.18 |
+| Phaser 3 | Bevy 0.20 |
 |---|---|
 | `Phaser.Scene` subclass | Plugin + a set of systems |
 | `preload()` | `Startup` system + `AssetServer::load(...)` |
@@ -39,7 +39,7 @@ fn load_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
 // app.add_systems(Startup, load_assets);
 ```
 
-Gate gameplay systems on readiness with `AssetServer::is_loaded_with_dependencies` or the `LoadingState` pattern from `bevy_asset_loader` (community crate).
+Gate gameplay systems on readiness with `AssetServer::is_loaded_with_dependencies` or the `LoadingState` pattern from `bevy_asset_loader` (community crate, 0.28 targets Bevy 0.20).
 
 ## `create()` → startup system
 
@@ -66,10 +66,12 @@ app.add_systems(FixedUpdate, apply_physics);
 
 ## Arcade Physics → `bevy_rapier2d` / `avian2d`
 
-Bevy 0.18 core has no physics engine. Two community crates provide 2D physics:
+Bevy 0.20 core has no physics engine. Two community crates provide 2D physics:
 
-- **`bevy_rapier2d`** — wraps the Rapier physics engine; mature, feature-rich, comparable to Arcade + Matter combined.
-- **`avian2d`** — Bevy-native, ECS-first design; slightly less mature but idiomatic.
+- **`bevy_rapier2d`** 0.37 — wraps the Rapier physics engine; mature, feature-rich, comparable to Arcade + Matter combined.
+- **`avian2d`** 0.8 — Bevy-native, ECS-first design; slightly less mature but idiomatic.
+
+Both versions target Bevy 0.20 (verified 2026-11).
 
 Both provide velocity, collision events, and sensor bodies equivalent to Phaser's Arcade physics API. Add the chosen crate's plugin and replace `setVelocityX` / `body.touching` with the crate's components and events.
 
@@ -87,7 +89,7 @@ fn drive_tweens(mut query: Query<(&mut Tween, &mut Transform)>, time: Res<Time>)
     for (mut tw, mut transform) in &mut query {
         tw.elapsed = (tw.elapsed + time.delta_secs()).min(tw.duration);
         let t = tw.elapsed / tw.duration;
-        // Use EaseFunction::SineInOut from bevy::math
+        // EasingCurve / EaseFunction live in bevy_curve (bevy::prelude re-exports them)
         let eased = EasingCurve::new(tw.start_x, tw.end_x, EaseFunction::SineInOut)
             .sample_clamped(t);
         transform.translation.x = eased;

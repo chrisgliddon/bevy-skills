@@ -61,9 +61,9 @@ name = "my-game"
 path = "src/main.rs"
 
 [dependencies]
-bevy                   = "0.18"
-es-fluent              = { version = "0.15", features = ["derive"] }
-es-fluent-manager-bevy = { version = "0.18", features = ["macros"] }
+bevy                   = "0.20"
+es-fluent              = "0.21"   # `derive` is a default feature
+es-fluent-manager-bevy = "0.21"   # requires bevy ^0.20.1 and rustc 1.99
 unic-langid            = "0.9"
 ```
 
@@ -92,13 +92,13 @@ es_fluent_manager_bevy::define_i18n_module!();
 use bevy::prelude::*;
 use es_fluent::EsFluent;
 use es_fluent_manager_bevy::{
-    BevyFluentText, FluentText, I18nPlugin, LocaleChangeEvent, RequestedLanguageId,
+    BevyFluentText, FluentText, I18nPlugin, LocaleChangeMessage, RequestedLanguageId,
 };
 use unic_langid::langid;
 
 pub mod i18n;
 
-#[derive(BevyFluentText, Clone, EsFluent, Component)]
+#[derive(BevyFluentText, Clone, EsFluent)]
 #[fluent(namespace = "ui")]
 pub enum UiMessage {
     StartGame,
@@ -121,7 +121,7 @@ pub fn setup_ui(mut commands: Commands) {
 pub fn switch_locale_on_keypress(
     keys: Res<ButtonInput<KeyCode>>,
     requested: Res<RequestedLanguageId>,
-    mut locale_events: MessageWriter<LocaleChangeEvent>,
+    mut locale_messages: MessageWriter<LocaleChangeMessage>,
 ) {
     if keys.just_pressed(KeyCode::KeyL) {
         let next = if requested.0.to_string() == "en" {
@@ -129,7 +129,7 @@ pub fn switch_locale_on_keypress(
         } else {
             langid!("en")
         };
-        locale_events.write(LocaleChangeEvent(next));
+        locale_messages.write(LocaleChangeMessage(next));
     }
 }
 ```

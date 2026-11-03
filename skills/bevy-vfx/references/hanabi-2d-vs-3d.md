@@ -4,22 +4,22 @@
 
 ## Feature flags
 
-`bevy_hanabi = "0.18.0"` ships **six** Cargo features. Both `2d` and `3d` are enabled
+`bevy_hanabi = "0.20.0"` ships **five** Cargo features. Both `2d` and `3d` are enabled
 by default:
 
 ```toml
 [dependencies]
-bevy_hanabi = "0.18.0"           # 2d + 3d both on (default)
+bevy_hanabi = "0.20.0"           # 2d + 3d both on (default)
 
 # 3D-only — saves compiling the 2D render path
-bevy_hanabi = { version = "0.18.0", default-features = false, features = ["3d"] }
+bevy_hanabi = { version = "0.20.0", default-features = false, features = ["3d"] }
 
 # 2D-only
-bevy_hanabi = { version = "0.18.0", default-features = false, features = ["2d"] }
+bevy_hanabi = { version = "0.20.0", default-features = false, features = ["2d"] }
 ```
 
-Other default features: `gpu_tests`, `serde`, `typetag`. The non-default feature is
-`trace`.
+The other default feature is `gpu_tests`. The non-default feature is `trace`. The
+`serde` and `typetag` features were removed in 0.19 (serialization is always on).
 
 The `2d` and `3d` flags gate the respective render pipeline registration inside
 `HanabiPlugin`. Disabling the one you don't use shrinks compile time slightly; there is
@@ -66,7 +66,8 @@ let orient = OrientModifier {
 };
 ```
 
-`OrientMode` variants verified against `bevy_hanabi` 0.18.0 docs:
+`OrientMode` variants verified against the `bevy_hanabi` 0.20.0 source
+(`OrientModifier::new(mode)` is the shorthand constructor):
 
 | Variant | Local axes | Cost | Typical use |
 |---|---|---|---|
@@ -110,16 +111,28 @@ let advance = SetAttributeModifier::new(Attribute::SPRITE_INDEX, index_expr);
 ```
 
 `FlipbookModifier` must be paired with `ParticleTextureModifier` so the GPU knows
-which texture to sample. The texture slot is registered in the `Module`:
+which texture to sample. Since 0.20 the slot index is a `u32` fixed at build time:
 
 ```rust
-// In setup, before writer.finish():
-let slot = module.add_texture_slot("explosion");
-let tex_mod = ParticleTextureModifier::new(writer.lit(slot as f32).expr());
+use bevy_hanabi::prelude::{EffectMaterial, SlotDimension};
+
+// In setup, before writer.finish(): register a 2D texture slot on the module.
+let mut module = writer.finish();
+let _slot = module.add_texture_slot("explosion", SlotDimension::D2);
+let tex_mod = ParticleTextureModifier::new(0); // slot index 0
 ```
 
-Then bind the actual texture via `EffectMaterial` on the particle entity (see
-[docs.rs/bevy_hanabi/0.18.0](https://docs.rs/bevy_hanabi/0.18.0/bevy_hanabi/struct.EffectMaterial.html)).
+Then bind the actual texture on the particle entity:
+
+```rust
+commands.spawn((
+    ParticleEffect::new(handle),
+    EffectMaterial { images: vec![asset_server.load("textures/explosion.png")] },
+));
+```
+
+0.20 also supports 1D, 3D, 2D-array, cube and depth slots (`SlotDimension`) and a
+non-sampling `TextureLoadExpr` usable from every pass.
 
 ## `ParticleTextureModifier` — static texture
 
@@ -127,8 +140,8 @@ Without `FlipbookModifier`, `ParticleTextureModifier` applies a single texture t
 particle (soft glow circle, snowflake, etc.):
 
 ```rust
-let slot = module.add_texture_slot("glow");
-let tex = ParticleTextureModifier::new(writer.lit(slot as f32).expr());
+let _slot = module.add_texture_slot("glow", SlotDimension::D2);
+let tex = ParticleTextureModifier::new(0);
 ```
 
 The `sample_mapping: ImageSampleMapping` field defaults to modulating the particle
@@ -137,15 +150,14 @@ color by the texture sample. Override it if you need alpha-only or full-replace 
 ## 3D mesh particles
 
 Hanabi's default particle is always a quad billboard. True instanced-mesh particles
-(each particle renders a 3D mesh) are not directly supported by `bevy_hanabi` 0.18.0 —
-use Bevy's built-in `GpuPickable` / instanced rendering or `bevy_particle_systems` for
-that pattern. Mention it only to clarify scope; billboard particles cover the vast
-majority of VFX use cases.
+(each particle renders a 3D mesh) use `EffectAsset::mesh` (an `AssetPath` since 0.19)
+or the per-instance `EffectMesh` component. Billboard quads remain the default and
+cover most VFX use cases.
 
 ## Sprite-sheet alternative (non-hanabi)
 
 For sprite-flipbook explosions that are *not* GPU particle systems, see the
-`non-hanabi-vfx` reference (Author B's file) for the `bevy_spritesheet_animation`
+[`non-hanabi-vfx.md`](non-hanabi-vfx.md) for the `bevy_spritesheet_animation`
 approach, which operates on ordinary `Sprite` entities.
 
 ## See also

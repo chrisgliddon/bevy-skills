@@ -37,7 +37,7 @@ Drive weights in `Update` by writing to the `AnimationGraph` asset directly (get
 
 ## AnimationTransitions::play
 
-`AnimationTransitions::play` is the only transition method in Bevy 0.18. There is no `play_with_transition`.
+`AnimationTransitions::play` is the only transition method in Bevy 0.20. There is no `play_with_transition`.
 
 ```rust
 use bevy::{animation::{graph::AnimationNodeIndex, RepeatAnimation}, prelude::*};
@@ -111,7 +111,7 @@ fn on_enter_combat(
 ## Gotchas
 
 - `AnimationTransitions` must be inserted **alongside** `AnimationPlayer` on the same entity. If it is absent, `play` has no effect.
-- `play_with_transition` does **not exist** in Bevy 0.18. Use `play(player, node, duration)`.
+- `play_with_transition` does **not exist** in Bevy 0.20. Use `play(player, node, duration)`.
 - Transitions outlive the system tick — a 250 ms crossfade continues across many frames without re-calling `play`.
 - Swapping `AnimationGraphHandle` at runtime causes a one-frame pose snap unless you call `transitions.play` on a node in the new graph in the same tick.
 - Node weights set on the `AnimationGraph` asset and transition weights from `AnimationTransitions` multiply together.

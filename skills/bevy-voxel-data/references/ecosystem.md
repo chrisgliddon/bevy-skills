@@ -12,11 +12,11 @@ discussion synthesis (see [generation](generation.md) and
 
 | Crate | Notes |
 |-------|-------|
-| [`block-mesh-rs`](https://crates.io/crates/block-mesh-rs) | Greedy quads and visible-block-faces meshing for blocky voxels. De facto standard in the Bevy ecosystem. Consumes a `VoxelVisibility` trait; works with any storage backend. |
+| [`block-mesh`](https://crates.io/crates/block-mesh) (repo `block-mesh-rs`, 0.2.0, Bevy-independent) | Greedy quads and visible-block-faces meshing for blocky voxels. De facto standard in the Bevy ecosystem. Consumes a `VoxelVisibility` trait; works with any storage backend. |
 | [`fast-surface-nets`](https://crates.io/crates/fast-surface-nets) | Surface nets / dual contouring for smooth voxels (terrain-style). Different paradigm from block-mesh. |
-| [`bevy_meshem`](https://crates.io/crates/bevy_meshem) | Bevy-native meshing plugin; higher-level API wrapping block-mesh concepts. |
+| [`bevy_meshem`](https://crates.io/crates/bevy_meshem) | Bevy-native meshing plugin; higher-level API wrapping block-mesh concepts. **Stale:** 0.4.0 (2024-05) targets Bevy 0.13; no Bevy 0.20 release as of 2026-11. |
 
-See `bevy-voxel-pipeline` skill for the Bevy 0.18 integration pattern that
+See `bevy-voxel-pipeline` skill for the Bevy 0.20 integration pattern that
 connects these crates to `AsyncComputeTaskPool` chunk tasks.
 
 ---
@@ -58,8 +58,8 @@ See [generation](generation.md) §4 for context.
 | Crate | Notes |
 |-------|-------|
 | [`dot_vox`](https://crates.io/crates/dot_vox) | MagicaVoxel `.vox` file parser. Useful for loading artist-authored voxel assets. |
-| [`bevy_vox`](https://crates.io/crates/bevy_vox) | Bevy asset loader for MagicaVoxel scenes. |
-| [`bevy-vox-scene`](https://crates.io/crates/bevy-vox-scene) | More featureful Bevy loader; handles multi-model `.vox` scenes with named sub-objects. |
+| [`bevy_vox`](https://crates.io/crates/bevy_vox) | Bevy asset loader for MagicaVoxel scenes. Last release 0.18.0 targets Bevy 0.18 — no 0.20 build as of 2026-11. |
+| [`bevy-vox-scene`](https://crates.io/crates/bevy-vox-scene) | More featureful Bevy loader; handles multi-model `.vox` scenes with named sub-objects. 0.23.0 targets Bevy 0.20. |
 
 For procedural worlds you will likely produce your own binary or RON format
 rather than using these. The RON catalog pattern is covered in the main
@@ -71,8 +71,8 @@ rather than using these. The RON catalog pattern is covered in the main
 
 | Crate | Notes |
 |-------|-------|
-| [`bevy_voxel_world`](https://crates.io/crates/bevy_voxel_world) | Chunk management, procedural generation hooks, and meshing as a Bevy plugin. The closest off-the-shelf analog to a full voxel game framework in the Bevy ecosystem. Evaluate carefully: it bakes in specific chunk-management opinions. |
-| [`bevy_voxel_engine`](https://crates.io/crates/bevy_voxel_engine) | GPU-driven voxel raymarching renderer. **Different rendering paradigm** from mesh-based engines — not a drop-in replacement. Worth studying for rendering ideas but incompatible with the `block-mesh-rs` + `StandardMaterial` pattern. |
+| [`bevy_voxel_world`](https://crates.io/crates/bevy_voxel_world) | 0.19.0 targets Bevy 0.20. Chunk management, procedural generation hooks, and meshing as a Bevy plugin. The closest off-the-shelf analog to a full voxel game framework in the Bevy ecosystem. Evaluate carefully: it bakes in specific chunk-management opinions. |
+| `bevy_voxel_engine` (GitHub only, not on crates.io) | GPU-driven voxel raymarching renderer. **Different rendering paradigm** from mesh-based engines — not a drop-in replacement. Worth studying for rendering ideas but incompatible with the `block-mesh-rs` + `StandardMaterial` pattern. |
 
 ---
 

@@ -4,29 +4,29 @@
 
 | Name | Direction | Meaning |
 |------|-----------|---------|
-| `LocaleChangeEvent` | **request** — you write it | Ask the plugin to switch to a new locale |
-| `LocaleChangedEvent` | **confirmation** — you read it | The new locale's bundles have loaded and are active |
+| `LocaleChangeMessage` | **request** — you write it | Ask the plugin to switch to a new locale |
+| `LocaleChangedMessage` | **confirmation** — you read it | The new locale's bundles have loaded and are active |
 
 These are Bevy 0.17+ **Messages**, not the old `Event` / `EventWriter` /
 `EventReader` API. Use `MessageWriter` and `MessageReader`:
 
 ```rust
-use es_fluent_manager_bevy::{LocaleChangeEvent, LocaleChangedEvent};
+use es_fluent_manager_bevy::{LocaleChangeMessage, LocaleChangedMessage};
 
 // Writing a request:
-fn request_locale_switch(mut writer: MessageWriter<LocaleChangeEvent>) {
-    writer.write(LocaleChangeEvent(langid!("fr")));
+fn request_locale_switch(mut writer: MessageWriter<LocaleChangeMessage>) {
+    writer.write(LocaleChangeMessage(langid!("fr")));
 }
 
 // Reading the confirmation:
-fn on_locale_changed(mut reader: MessageReader<LocaleChangedEvent>) {
+fn on_locale_changed(mut reader: MessageReader<LocaleChangedMessage>) {
     for event in reader.read() {
         println!("Locale is now: {}", event.0);
     }
 }
 ```
 
-Using `EventWriter<LocaleChangeEvent>` or `EventReader<LocaleChangedEvent>`
+Using `EventWriter<LocaleChangeMessage>` or `EventReader<LocaleChangedMessage>`
 compiles on Bevy 0.16 but not on 0.17+. The rename is at the Bevy level, not
 `es-fluent-manager-bevy`'s API.
 
@@ -36,7 +36,7 @@ compiles on Bevy 0.16 but not on 0.17+. The rename is at the Bevy level, not
 
 `RequestedLanguageId` is a resource inserted by `I18nPlugin` that reflects the
 **most recently requested** locale — i.e. the argument last passed to
-`LocaleChangeEvent`. It updates immediately when the event is written, before
+`LocaleChangeMessage`. It updates immediately when the event is written, before
 the `.ftl` bundles for that locale have finished loading.
 
 ```rust
@@ -52,14 +52,10 @@ settings menu) without waiting for asset loading.
 
 ## `ActiveLanguageId` — what is actually loaded
 
-`ActiveLanguageId` (if exported in the version you are using) reflects the
-locale whose bundles are **currently active and ready**. It lags behind
-`RequestedLanguageId` by the time it takes Bevy's `AssetServer` to load the
-`.ftl` files for the new locale.
-
-If `ActiveLanguageId` is not exported in your version of
-`es-fluent-manager-bevy`, react to `LocaleChangedEvent` instead — it fires
-exactly once when the new locale is ready.
+`ActiveLanguageId` (exported since 0.21) reflects the locale whose bundles are
+**currently active and ready**. It lags behind `RequestedLanguageId` by the time
+it takes Bevy's `AssetServer` to load the `.ftl` files for the new locale.
+`LocaleChangedMessage` fires once when it updates.
 
 ---
 
@@ -69,7 +65,7 @@ exactly once when the new locale is ready.
 pub fn switch_locale_on_keypress(
     keys: Res<ButtonInput<KeyCode>>,
     requested: Res<RequestedLanguageId>,
-    mut locale_events: MessageWriter<LocaleChangeEvent>,
+    mut locale_messages: MessageWriter<LocaleChangeMessage>,
 ) {
     if keys.just_pressed(KeyCode::KeyL) {
         let next = if requested.0.to_string() == "en" {
@@ -77,7 +73,7 @@ pub fn switch_locale_on_keypress(
         } else {
             langid!("en")
         };
-        locale_events.write(LocaleChangeEvent(next));
+        locale_messages.write(LocaleChangeMessage(next));
     }
 }
 ```
@@ -102,12 +98,16 @@ The plugin inserts `RequestedLanguageId` with this value before any systems run.
 
 ## Pitfalls
 
-### `BevyI18n` system param not exported in crates.io release
+### Names changed in 0.21
 
-`BevyI18n` system param (imperative localization) exists in the GitHub source
-but is **not exported in crates.io `0.18.12`**. If you need imperative lookup
-in a system, query `I18nBundle` and `I18nResource` directly, or wait for a
-later release.
+`LocaleChangeEvent` / `LocaleChangedEvent` (0.18–0.20 crate lines) are
+`LocaleChangeMessage` / `LocaleChangedMessage` in 0.21. Stale snippets fail
+with "cannot find type `LocaleChangeEvent`".
+
+### `BevyI18n` is exported since 0.21
+
+Use the `BevyI18n` system param for imperative lookups instead of querying
+bundle resources directly (the 0.18 workaround).
 
 ---
 

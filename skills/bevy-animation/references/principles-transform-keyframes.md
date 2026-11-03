@@ -3,7 +3,7 @@
 > Referenced from `bevy-animation/SKILL.md § The 12 Basic Principles`.
 
 These three live in *space* — they're about what values your keyframes hit on
-`Transform`'s scale, translation, and rotation. Bevy 0.18's `AnimatableCurve` +
+`Transform`'s scale, translation, and rotation. Bevy 0.20's `AnimatableCurve` +
 `animated_field!` + `AnimatableKeyframeCurve` are the toolkit.
 
 ---
@@ -70,7 +70,7 @@ let curve = AnimatableCurve::new(
 
 Bevy interpolates **linearly** between keyframe samples by default. For a smooth arc
 with only a few key poses, sample more densely (add intermediate frames) or use
-`UnevenSampleAutoCurve` from `bevy::math::curve`, which fits a smoother interpolant
+`UnevenSampleAutoCurve` from `bevy::curve`, which fits a smoother interpolant
 through sparse samples.
 
 ---
@@ -92,7 +92,7 @@ feel snappier (higher speed) or more ponderous (lower speed).
 // Build the graph with an additive node at a tunable weight.
 // weight < 1.0 → damped (less exaggerated)
 // weight = 1.0 → authored amplitude
-// weight > 1.0 → overdrive — values are NOT clamped in 0.18;
+// weight > 1.0 → overdrive — values are NOT clamped in 0.20;
 //                 use carefully, especially on rotation (quaternion
 //                 normalisation handles it, but scale/translation can
 //                 exceed intended bounds).

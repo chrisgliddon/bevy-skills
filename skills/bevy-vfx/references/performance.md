@@ -16,15 +16,17 @@ particle count or quad screen-area are the highest-impact optimisations.
 
 ## The WASM / WebGPU caveat (most important)
 
-Both `bevy_hanabi 0.18.0` and `bevy_spark 0.2.0` use **compute shaders** internally.
-Compute shaders are WebGPU-only. They will not compile with Bevy's `webgl2` feature.
+`bevy_hanabi 0.20.0` uses **compute shaders** for simulation. Compute shaders are
+WebGPU-only; hanabi will not run with Bevy's `webgl2` feature. `bevy_spark 0.2.0`
+(Bevy 0.18 only) ships a `webgl2` feature that swaps storage buffers for integer
+textures, so splats do run on WebGL2.
 
-Build for WebGPU, not WebGL2, when your project uses either crate:
+Build for WebGPU, not WebGL2, when your project uses hanabi:
 
 ```toml
-# Cargo.toml — correct WASM target for hanabi or bevy_spark
+# Cargo.toml — correct WASM target for hanabi
 [dependencies]
-bevy = { version = "0.18", features = ["webgpu"] }
+bevy = { version = "0.20", features = ["webgpu"] }
 # NOT: features = ["webgl2"]
 ```
 
@@ -38,14 +40,19 @@ Cross-reference `bevy-wasm-webgpu` for the full WASM build setup.
 
 ## Profiling VFX systems
 
-Hanabi simulation runs in `PostUpdate`, inside the `HanabiSet::Simulate` system set,
-before `TransformSystems::Propagate`. Splat sort runs in the render world.
+Hanabi ticks spawners and compiles effects in `PostUpdate` (`EffectSystems::TickSpawners`,
+`EffectSystems::CompileEffects`); the GPU simulation runs in the render world. Splat
+sort runs in the render world.
 
-Enable the Bevy dev tools FPS overlay for a quick sanity check:
+Enable the Bevy dev tools FPS overlay for a quick sanity check (needs the
+`bevy_dev_tools` feature):
 
 ```rust
 app.add_plugins(bevy::dev_tools::fps_overlay::FpsOverlayPlugin::default());
 ```
+
+0.20 adds `RenderDebugOverlayPlugin` to `DefaultPlugins` (off by default) under the
+`bevy_dev_tools` + `render_dev_tools` features, with `RenderDebugOverlayKeybindings`.
 
 For span-level profiling, enable the `trace` Bevy feature and capture a Tracy / WGPU
 trace:
@@ -54,10 +61,9 @@ trace:
 cargo run --features bevy/trace
 ```
 
-Look for these spans:
-- `hanabi::simulate` — CPU portion of hanabi (spawner bookkeeping, not GPU compute).
-- `hanabi::extract` — copies effect metadata to the render world each frame.
-- `spark::sort` — per-frame depth sort for Gaussian splats (GPU compute).
+Look for hanabi's `tick_spawners` / `compile_effects` / extract spans on the CPU side.
+0.20 batches same-effect instances into one dispatch, so many emitters of one
+`EffectAsset` cost one compute job.
 
 GPU compute timings are only visible in RenderDoc / WGPU's GPU profiler; they do not
 appear in Bevy's CPU span output.
@@ -79,9 +85,10 @@ the correct model.
 
 ## Texture atlasing for `ParticleTextureModifier`
 
-Each hanabi effect that uses a different `Handle<Image>` for particle textures forces a
+Each hanabi effect that binds a different `Handle<Image>` (via `EffectMaterial`) forces a
 separate draw call (different bind group). Bundle particle textures into a shared atlas
-and assign UV sub-rects via `ParticleTextureModifier`:
+or a 2D array texture (`SlotDimension::D2Array`, new in 0.20) and pick the layer in the
+shader:
 
 - One atlas = one bind group = all effects that share it batch into fewer draw calls.
 - Atlases also improve texture-cache hit rate in the fragment stage.
@@ -115,7 +122,8 @@ Risks:
 
 Mitigations:
 - Use `AlphaMode::Opaque` or `AlphaMode::Mask` for geometry that does not need
-  blending.
+  blending. 0.20 `Sprite` has an `alpha_mode` field; 0.20 materials can opt out of OIT
+  via `Material::enable_oit()`.
 - Confine full-screen or large-coverage transparent effects to distinct depth layers
   that do not interleave with splat geometry.
 - Profile transparent pass draw-call count with the Bevy render diagnostics plugin.

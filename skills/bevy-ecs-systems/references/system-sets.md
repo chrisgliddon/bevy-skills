@@ -1,9 +1,8 @@
-# Bevy 0.18 — SystemSet deep dive
+# Bevy 0.20 — SystemSet deep dive
 
 ## Derive requirements
 
-A type used as a `SystemSet` must derive all five of:
-`Hash`, `PartialEq`, `Eq`, `Clone`, `Debug`.
+A `SystemSet` type must derive all five of `Hash`, `PartialEq`, `Eq`, `Clone`, `Debug`.
 
 ```rust
 use bevy::prelude::*;
@@ -16,12 +15,11 @@ enum GameLoop {
 }
 ```
 
-Missing any of those five traits produces a compiler error from the macro.
+Missing any of the five produces a compiler error from the macro.
 
 ## Registering systems into a set
 
-`.in_set(MySet::Variant)` attaches the system to the set. A system can belong to
-multiple sets simultaneously.
+`.in_set(MySet::Variant)` attaches the system to the set. A system can belong to several sets.
 
 ```rust
 app.add_systems(Update, read_input.in_set(GameLoop::Input));
@@ -37,32 +35,37 @@ app.configure_sets(
 );
 ```
 
-`.chain()` on a tuple is syntactic sugar for `.before(next)` on each set in
-sequence. The above is equivalent to:
+`.chain()` on a tuple is sugar for `.before(next)` on each consecutive pair:
 
 ```rust
 app.configure_sets(Update, GameLoop::Input.before(GameLoop::Simulate));
 app.configure_sets(Update, GameLoop::Simulate.before(GameLoop::Render));
 ```
 
-## Set-relative vs system-relative ordering
+## Strict versus weak (0.20)
 
-Prefer set-relative ordering (`configure_sets`) over chaining individual
-systems. When you add a new system into `GameLoop::Simulate`, it automatically
-runs after everything in `GameLoop::Input` — no update to system ordering needed.
+`.chain()` makes every system in `Input` finish before any system in `Simulate` starts. `.chain_weak()` keeps an edge only between systems whose tracked data access conflicts; everything else may overlap.
 
 ```rust
-// Set-relative (preferred): new systems in Simulate auto-inherit ordering
+app.configure_sets(Update, (GameLoop::Input, GameLoop::Simulate).chain_weak());
+app.add_systems(Update, draw_hud.after_weak(GameLoop::Input));
+```
+
+Use weak ordering for throughput when systems only talk through ECS data. Keep `.chain()` when they talk through channels, atomics or `NonSend` state, which the scheduler cannot see. Bevy's own `PostUpdate` UI sets and the render-world sets switched to `.chain_weak()` in 0.20.
+
+## Set-relative vs system-relative ordering
+
+Prefer set-relative ordering. A new system added to `GameLoop::Simulate` automatically runs after everything in `GameLoop::Input`.
+
+```rust
+// Set-relative (preferred): new systems in Simulate inherit the ordering.
 app.configure_sets(Update, GameLoop::Input.before(GameLoop::Simulate));
 
-// System-relative (fragile): must manually order every new system
+// System-relative (fragile): every new system needs its own edge.
 app.add_systems(Update, new_system.after(read_input));
 ```
 
 ## `.chain()` on system tuples
-
-`.chain()` also works directly on a tuple of systems, running them in sequence
-within a single `add_systems` call:
 
 ```rust
 app.add_systems(
@@ -73,20 +76,18 @@ app.add_systems(
 
 ## Nested sets
 
-Sets can be members of other sets. Configure the nested relationship the same way:
-
 ```rust
 #[derive(SystemSet, Hash, PartialEq, Eq, Clone, Debug)]
 enum PhysicsSet { BroadPhase, NarrowPhase, Integration }
 
 app.configure_sets(Update, PhysicsSet::BroadPhase.before(PhysicsSet::NarrowPhase));
 app.configure_sets(Update, (PhysicsSet::NarrowPhase, PhysicsSet::Integration).chain());
-// Then order the PhysicsSet relative to GameLoop:
+// Then order PhysicsSet relative to GameLoop:
 app.configure_sets(Update, GameLoop::Input.before(PhysicsSet::BroadPhase));
 ```
 
 ## See also
 
 - [system-params.md](system-params.md) — what parameters systems can take.
-- [ordering.md](ordering.md) — `.before`, `.after`, ambiguity, `.ambiguous_with`.
+- [ordering.md](ordering.md) — `.before`, `.after`, weak ordering, ambiguity, `.ambiguous_with`.
 - [runtime-removal.md](runtime-removal.md) — removing a whole set at runtime.

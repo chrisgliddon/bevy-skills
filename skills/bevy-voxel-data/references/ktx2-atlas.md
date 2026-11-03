@@ -92,14 +92,21 @@ operates per-slice. See [atlas-binding.md](atlas-binding.md) for the
 | WASM (WebGPU)       | BC7 or ASTC | WebGPU exposes both on most hardware; prefer BC7 as safer fallback. |
 | Universal fallback  | RGBA8  | Uncompressed; always works; 4× larger on GPU. |
 
-Bevy's `ktx2` feature (on by default in the `3d` bundle) loads KTX2 with
-supercompression (Zstandard). Enable it explicitly in trimmed WASM builds:
+Bevy's `ktx2` feature (pulled in by `3d_api`, so by `3d` and the defaults)
+loads KTX2 with Zstandard supercompression through `zstd_rust` (pure Rust) or
+`zstd_c` (C bindings, faster). There is no plain `zstd` feature in 0.20.
+Enable both explicitly in trimmed WASM builds:
 
 ```toml
 # Cargo.toml
 [dependencies]
-bevy = { version = "0.18", features = ["ktx2", "zstd"] }
+bevy = { version = "0.20", features = ["ktx2", "zstd_rust"] }
 ```
+
+If you let Bevy's asset processor compress the atlas instead of an offline
+script, note the 0.20 rework: `compressed_image_saver` now produces BCn
+(desktop) or ASTC (mobile) via `ctt`; the old Basis Universal UASTC output is
+`compressed_image_saver_universal`.
 
 ---
 

@@ -1,4 +1,4 @@
-# bevy-porting — Godot 4 → Bevy 0.18
+# bevy-porting — Godot 4 → Bevy 0.20
 
 > Referenced from `bevy-porting/SKILL.md § Engine coverage`.
 
@@ -12,7 +12,7 @@ Coordinate system: Godot is **right-handed Y-up** — same as Bevy and glTF. Axi
 
 ## Node type map
 
-| Godot 4 | Bevy 0.18 |
+| Godot 4 | Bevy 0.20 |
 |---|---|
 | `Node2D` | `Entity` + `Transform` (2D: `Camera2d` + 2D mesh) |
 | `Node3D` | `Entity` + `Transform` |
@@ -36,7 +36,7 @@ python3 tscn_inventory.py levels/World.tscn --resolve-resources --out world_reso
 
 ## GDScript → Rust
 
-| Godot 4 | Bevy 0.18 |
+| Godot 4 | Bevy 0.20 |
 |---|---|
 | `_process(delta: float)` | `Update` system with `time: Res<Time>` |
 | `_physics_process(delta)` | `FixedUpdate` system with `Time<Fixed>` |
@@ -57,33 +57,38 @@ fn move_entities(mut query: Query<(&Speed, &mut Transform)>, time: Res<Time>) {
 
 ## Signals → Bevy events / observers
 
-Godot signals are typed pub/sub. Bevy 0.18 equivalents:
+Godot signals are typed pub/sub. Bevy 0.20 equivalents:
 
-- **One-to-many fire-and-forget** → `EventWriter<E>` / `EventReader<E>`.
-- **Entity-targeted reactions** → `On<E>` observer triggered via `commands.trigger_targets(e, entity)`.
+- **One-to-many fire-and-forget** → `MessageWriter<M>` / `MessageReader<M>` (`#[derive(Message)]`; the pre-0.17 `EventWriter` names are gone).
+- **Entity-targeted reactions** → `#[derive(EntityEvent)]` + `On<E>` observer, fired with `commands.trigger(E { entity })` (`trigger_targets` no longer exists).
 
-Cross-link: **`bevy-ecs-systems`** (event and observer patterns).
+Cross-link: **`bevy-ecs-systems`** (message and observer patterns).
 
 ```rust
 // Godot: signal health_depleted(); emit_signal("health_depleted")
-// Bevy:
-#[derive(Event)] struct HealthDepleted { entity: Entity }
+// Bevy — buffered message:
+#[derive(Message)] struct HealthDepleted { entity: Entity }
 
 fn check_health(
     query: Query<(Entity, &Health)>,
-    mut writer: EventWriter<HealthDepleted>,
+    mut writer: MessageWriter<HealthDepleted>,
 ) {
     for (entity, health) in &query {
-        if health.current <= 0.0 { writer.send(HealthDepleted { entity }); }
+        if health.current <= 0.0 { writer.write(HealthDepleted { entity }); }
     }
 }
+
+// Bevy — entity-targeted observer event:
+#[derive(EntityEvent)] struct Died { entity: Entity }
+fn kill(mut commands: Commands, entity: Entity) { commands.trigger(Died { entity }); }
+fn on_died(died: On<Died>, mut commands: Commands) { commands.entity(died.entity).despawn(); }
 ```
 
 ## Animation
 
 Both engines use a component named `AnimationPlayer`, but the APIs differ:
 
-| Godot 4 | Bevy 0.18 |
+| Godot 4 | Bevy 0.20 |
 |---|---|
 | `AnimationPlayer` runs tracks on node properties | `AnimationPlayer` drives curves on `Entity` components |
 | `AnimationTree` blend tree | `AnimationGraph` with blend nodes |
@@ -101,19 +106,19 @@ Cross-link: **`bevy-custom-assets`**.
 
 Godot's Container/Control system already uses a CSS-like model (size flags, anchor presets, minimum size). The mapping to Bevy's `Node` + Taffy flexbox is closer than Unity's UGUI:
 
-| Godot 4 | Bevy 0.18 |
+| Godot 4 | Bevy 0.20 |
 |---|---|
 | `VBoxContainer` | `Node` with `FlexDirection::Column` |
 | `HBoxContainer` | `Node` with `FlexDirection::Row` |
 | `Label` | `Text` component |
 | `TextureRect` | `ImageNode` |
-| `Button` | `Button` + `Interaction` component |
+| `Button` | `ui_widgets::Button` + `Hovered` / `Pressed` components, `On<Activate>` (the `Interaction` enum is deprecated in 0.20) |
 
 Cross-link: **`bevy-ui`**.
 
 ## Project export
 
-| Godot 4 | Bevy 0.18 |
+| Godot 4 | Bevy 0.20 |
 |---|---|
 | Export presets (Desktop) | `cargo build --release --target <triple>` |
 | `--headless` export | CI `cargo build` with env vars |
@@ -126,7 +131,7 @@ WebAssembly: cross-link **`bevy-wasm-webgpu`**.
 - Godot's `NodePath` and `RID` are internal runtime IDs — do not port them. Use `Entity` IDs and Bevy path handles.
 - GDScript duck typing has no Rust equivalent; plan for a strict typing pass during port.
 - `CharacterBody3D`'s `move_and_slide` is built into Godot's physics; replicate with a physics plugin + a custom move system.
-- `@export` variables (inspector-editable fields) have no direct Bevy runtime equivalent; store in a `Resource` or component with `Reflect` for `bevy_editor` inspection.
+- `@export` variables (inspector-editable fields) have no direct Bevy runtime equivalent; store in a `Resource` or component with `Reflect` so BSN scenes and inspectors can edit them.
 - Godot 4's GDExtension C++ API is not relevant to a Bevy port — focus on the GDScript/scene logic.
 
 ## See also

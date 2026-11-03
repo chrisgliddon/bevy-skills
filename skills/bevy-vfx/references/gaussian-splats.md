@@ -14,7 +14,13 @@ The "scene" is the asset. You import it; you do not build it in-engine.
 
 ## `bevy_spark 0.2.0` — Bevy 0.18 Gaussian splat renderer
 
-`bevy_spark` (crates.io, repo: `htdt/bevy_spark`) pins `bevy = "0.18"` cleanly.
+> **Compatibility:** `bevy_spark 0.2.0` (2026-05-04, latest on crates.io as of
+> 2026-11-03) pins `bevy = "^0.18"`. There is no 0.19 or 0.20 release, so it cannot
+> share a dependency graph with a Bevy 0.20 app. Either keep the splat viewer on Bevy
+> 0.18 or fork and port it (0.19 removed `RenderGraph` nodes; 0.20 needs WESL shaders
+> and `#[extract_app(RenderApp)]`). The snippets below are the 0.18 API.
+
+`bevy_spark` (crates.io, repo: `htdt/bevy_spark`) pins `bevy = "0.18"`.
 It loads `.spz` files (Niantic / NGSP Gaussian splat format) and renders them via a
 dedicated render pipeline.
 
@@ -107,8 +113,9 @@ is: splat scene as photoreal backdrop, mesh entities for anything interactive.
 - **Sort per frame:** splats must be sorted by depth each frame for correct
   alpha-compositing order. `SparkSettings` exposes `SplatSortSettings` to choose
   sort mode (`SplatSortMode`) and backend (`SplatSortBackend`).
-- **WebGPU only.** `bevy_spark` uses compute shaders for sorting. It will not compile
-  or run with the Bevy `webgl2` feature. See `bevy-wasm-webgpu` for the target setup.
+- **WebGL2 via feature.** Native and WebGPU use storage buffers; enable the crate's
+  `webgl2` feature (forwards `bevy/webgl2`) to switch splat, SH and sorted-index data to
+  integer textures. See `bevy-wasm-webgpu` for the target setup.
 
 ## Authoring / capture pipeline
 
@@ -148,4 +155,4 @@ problem. `bevy_spark` is a *renderer*, not a trainer.
 - [`performance.md`](performance.md) — GPU budget table and transparent-pass cost
 - `bevy-cameras` — splat scenes are strongly camera-centric; camera placement and FOV
   affect splat quality and sort order noticeably
-- `bevy-wasm-webgpu` — WebGPU-only constraint; compute-shader sort backend
+- `bevy-wasm-webgpu` — WebGPU vs the crate's `webgl2` feature

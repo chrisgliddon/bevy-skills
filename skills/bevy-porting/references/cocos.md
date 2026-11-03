@@ -1,4 +1,4 @@
-# bevy-porting — Cocos Creator 3.x → Bevy 0.18
+# bevy-porting — Cocos Creator 3.x → Bevy 0.20
 
 > Referenced from `bevy-porting/SKILL.md § Engine coverage`.
 
@@ -10,17 +10,17 @@
 
 Cocos Creator uses a **node-tree with component scripts** (TypeScript classes extending `cc.Component`). Bevy is **ECS**. The split to make:
 
-| Cocos Creator 3.x | Bevy 0.18 |
+| Cocos Creator 3.x | Bevy 0.20 |
 |---|---|
 | `Node` | `Entity` + `Transform` |
 | `cc.Component` (script) | Split: `#[derive(Component)]` data struct + `fn` system |
 | `cc.director` (singleton) | `Resource` |
 | `cc.game` / scene manager | `App` + scene loading via `AssetServer` |
-| `cc.Node.on(event, cb)` | `EventWriter`/`EventReader` or `On<E>` observer |
+| `cc.Node.on(event, cb)` | `MessageWriter`/`MessageReader` or `On<E>` observer |
 
 ## Lifecycle
 
-| Cocos Creator | Bevy 0.18 |
+| Cocos Creator | Bevy 0.20 |
 |---|---|
 | `onLoad()` | `Startup` schedule system or `Added<C>` query filter |
 | `start()` | `Startup` (after `onLoad`) or first-frame check via `Local<bool>` |
@@ -40,7 +40,7 @@ fn move_entities(mut query: Query<(&Speed, &mut Transform)>, time: Res<Time>) {
 
 ## 2D and 3D primitives
 
-| Cocos Creator 3.x | Bevy 0.18 |
+| Cocos Creator 3.x | Bevy 0.20 |
 |---|---|
 | `Sprite` (2D) | `Sprite` component, texture via `Handle<Image>` |
 | `MeshRenderer` (3D) | `Mesh3d` + `MeshMaterial3d<StandardMaterial>` |
@@ -77,14 +77,14 @@ The Cocos Creator scripting model is high-level (decorators, `async`/`await`, pr
 | `@property` decorator fields | Plain fields on the component struct |
 | `async/await` coroutines | `bevy_tasks::IoTaskPool` or `AsyncComputeTaskPool` |
 | `cc.tween(...)` | `AnimatableCurve` + `bevy-animation` keyframes |
-| `cc.Node.emit(event, data)` | `EventWriter<E>` |
+| `cc.Node.emit(event, data)` | `MessageWriter<M>` (`#[derive(Message)]`) |
 | `cc.find("Path/To/Node")` | `Query` by component marker or `ChildOf` traversal |
 
 Cross-link: **`bevy-core-concepts`** for schedules, `Time`, and the ECS mental model.
 
 ## Animation
 
-| Cocos Creator 3.x | Bevy 0.18 |
+| Cocos Creator 3.x | Bevy 0.20 |
 |---|---|
 | `AnimationClip` (keyframe tracks) | `AnimationClip` + `AnimationGraph` |
 | `AnimationState` playback | `AnimationPlayer` + `AnimationTransitions::play` |
@@ -94,12 +94,12 @@ Export skeletal models to glTF from Cocos Creator (or from DCC tools), then load
 
 ## UI
 
-| Cocos Creator 3.x | Bevy 0.18 |
+| Cocos Creator 3.x | Bevy 0.20 |
 |---|---|
-| `Canvas` (root UI node) | `Node` with `TargetCamera` |
+| `Canvas` (root UI node) | `Node` with `UiTargetCamera` |
 | `Label` | `Text` component |
 | `Sprite` (UI image) | `ImageNode` |
-| `Button` | `Button` + `Interaction` |
+| `Button` | `ui_widgets::Button` + `Hovered` / `Pressed`, `On<Activate>` |
 | `Layout` (H/V/Grid) | `Node` + Taffy `FlexDirection` / `display: Grid` |
 | `Widget` (anchors) | Taffy margin / align-self / position |
 
@@ -107,7 +107,7 @@ Cross-link: **`bevy-ui`**.
 
 ## Build and publish
 
-| Cocos Creator 3.x | Bevy 0.18 |
+| Cocos Creator 3.x | Bevy 0.20 |
 |---|---|
 | Build panel → Web Desktop/Mobile | `cargo build --target wasm32-unknown-unknown` |
 | Build panel → Windows/macOS/Linux | `cargo build --release --target <triple>` |

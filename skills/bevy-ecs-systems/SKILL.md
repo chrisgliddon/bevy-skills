@@ -1,24 +1,24 @@
 ---
 name: bevy-ecs-systems
-description: Use when deriving `SystemParam`, grouping with `SystemSet`, gating execution with `.run_if(on_message::<M>())` / `in_state(...)` / `resource_exists::<R>`, ordering with `.before`/`.after`/`.chain()`, or removing systems at runtime with `remove_systems_in_set` (new in 0.18). Covers Bevy 0.18 system params, sets, and run conditions.
+description: Use when deriving `SystemParam`, grouping with `SystemSet`, gating execution with `.run_if(on_message::<M>)` / `in_state(...)` / `resource_exists::<R>`, combining conditions with `.and_then()` / `.or_else()`, ordering with `.before`/`.after`/`.chain()`/`.chain_weak()`, driving states with `NextState::set_if_different`, or removing systems with `remove_systems_in_set` in Bevy 0.20.
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:
   tier: "1"
   area: ecs
-  bevy_version: "0.18"
+  bevy_version: "0.20"
 ---
 
-# Bevy 0.18 — ECS Systems (params, sets, run conditions)
+# Bevy 0.20 — ECS Systems (params, sets, run conditions)
 
 ## When to use this skill
 
-- Bundling related state into a single system parameter via `#[derive(SystemParam)]`.
+- Bundling related state into one parameter via `#[derive(SystemParam)]`.
 - Grouping systems into a `SystemSet` so callers can order against the whole group.
 - Gating systems with run conditions (`run_if`, `on_message`, `in_state`, `resource_exists`, `any_with_component`).
-- Hooking into state transitions with `OnEnter(S)` / `OnExit(S)` / `OnTransition { from, to }`.
-- Hot-removing systems at runtime (e.g. tearing down a debug overlay) with `remove_systems_in_set`.
-- Hitting `ScheduleBuildError` ambiguity panics — the executor no longer guesses.
+- Hooking into state transitions with `OnEnter(S)` / `OnExit(S)` / `OnTransition { exited, entered }`.
+- Hot-removing systems at runtime (tearing down a debug overlay) with `remove_systems_in_set`.
+- Choosing strict `.chain()` versus weak `.chain_weak()` ordering (0.20).
 
 ## Canonical pattern
 
@@ -38,7 +38,7 @@ struct Score(u32);
 #[derive(Message)]
 struct GoalScored { team: u8 }
 
-// Composite param: pass one argument, get four.
+// Composite param: pass one argument, get three.
 // 'w = world borrow; 's = system-local state borrow.
 #[derive(SystemParam)]
 struct GameCtx<'w, 's> {
@@ -54,9 +54,7 @@ fn main() {
         .add_message::<GoalScored>()
         .init_state::<AppState>()
         .configure_sets(Update, (GameLoop::Input, GameLoop::Simulate, GameLoop::Render).chain())
-        // State schedule: fires once when entering Playing.
         .add_systems(OnEnter(AppState::Playing), spawn_level)
-        // State schedule: fires once when leaving Playing.
         .add_systems(OnExit(AppState::Playing), despawn_level)
         .add_systems(Update, read_input.in_set(GameLoop::Input))
         .add_systems(
@@ -65,7 +63,7 @@ fn main() {
                 .in_set(GameLoop::Simulate)
                 .run_if(on_message::<GoalScored>),
         )
-        .add_systems(Update, draw_hud.in_set(GameLoop::Render))
+        .add_systems(Update, (draw_hud, start_game).in_set(GameLoop::Render))
         .run();
 }
 
@@ -93,6 +91,12 @@ fn tally_goals(mut ctx: GameCtx) {
 }
 
 fn draw_hud(score: Res<Score>) { let _ = score.0; }
+
+// 0.20: `set_if_different` (was `set_if_neq`) skips OnExit/OnEnter when
+// the target equals the current state.
+fn start_game(mut next: ResMut<NextState<AppState>>) {
+    next.set_if_different(AppState::Playing);
+}
 ```
 
 ## Run condition cheat sheet
@@ -106,29 +110,38 @@ fn draw_hud(score: Res<Score>) { let _ = score.0; }
 | `state_changed::<MyState>` | The state changed this tick. |
 | `any_with_component::<C>` | At least one entity has `C`. |
 
-Combine with `.and()` / `.or()`: `run_if(in_state(GameState::Playing).and(resource_exists::<NetSession>()))`.
+Combine with `.and_then()` / `.or_else()` (short-circuit) or `.and_eager()` / `.or_eager()` (always evaluate both): `run_if(in_state(GameState::Playing).and_then(resource_exists::<NetSession>))`. Stale LLM output uses `.and()` / `.or()`; those methods do not exist.
 
 ## Topics
 
 | Topic | Reference |
 |---|---|
-| `#[derive(SystemParam)]`, `'w`/`'s` lifetimes, `Local<T>`, `Commands` deferred apply | [references/system-params.md](references/system-params.md) |
+| `#[derive(SystemParam)]`, `'w`/`'s` lifetimes, `Local<T>`, `&mut World` as a param, `Commands` deferred apply | [references/system-params.md](references/system-params.md) |
 | `#[derive(SystemSet)]` requirements, `.in_set`, `.configure_sets`, `.chain()` | [references/system-sets.md](references/system-sets.md) |
-| Every built-in condition, `.and()`/`.or()`/`not()`, custom conditions, cost rule | [references/run-conditions.md](references/run-conditions.md) |
-| `OnEnter(S)` / `OnExit(S)` / `OnTransition`, `NextState<S>`, `set_if_neq` | [references/state-schedules.md](references/state-schedules.md) |
-| `.before`, `.after`, `.chain()`, `.ambiguous_with`, debugging ambiguity errors | [references/ordering.md](references/ordering.md) |
+| Every built-in condition, combinators, custom conditions, cost rule | [references/run-conditions.md](references/run-conditions.md) |
+| `OnEnter(S)` / `OnExit(S)` / `OnTransition`, `NextState<S>`, `set_if_different`, `DespawnOnExit` | [references/state-schedules.md](references/state-schedules.md) |
+| `.before`, `.after`, `.chain()`, `.chain_weak()`, `.ambiguous_with`, `shuffle_seed`, debugging ambiguity | [references/ordering.md](references/ordering.md) |
 | `remove_systems_in_set`, `ScheduleCleanupPolicy`, 3-arg vs 4-arg receivers, side-effect limits | [references/runtime-removal.md](references/runtime-removal.md) |
 
-## Gotchas (0.18)
+## Gotchas (0.18 → 0.20)
 
-- **`SimpleExecutor` is gone.** Any ambiguity between systems sharing data is now a build-time error. Fix with `.before`, `.after`, `.chain()`, or `.ambiguous_with(other)` (explicit accept). See [references/ordering.md](references/ordering.md).
-- **`MessageReader` / `MessageWriter`, not `EventReader` / `EventWriter`.** Renamed in 0.17. Trait derive is `#[derive(Message)]`; registrar is `app.add_message::<M>()`.
-- **`next_state.set(S)` always fires `OnExit`/`OnEnter` in 0.18.** Use `set_if_neq` for the old behaviour. See [references/state-schedules.md](references/state-schedules.md).
-- **`Schedules::remove_systems_in_set` takes 4 args in 0.18** (`schedule_label`, `set`, `world`, `ScheduleCleanupPolicy`); `Schedule::remove_systems_in_set` takes 3. See [references/runtime-removal.md](references/runtime-removal.md).
+- **`&mut World` is a `SystemParam` (0.20).** It may appear anywhere in the parameter list, beside params that do not borrow the World (`Local<T>`, `&mut SystemState`, `&mut QueryState`). `ExclusiveSystemParam`, `ExclusiveFunctionSystem` and `System::is_exclusive()` are removed; exclusivity is tracked at runtime via `SystemAccess::is_exclusive()`.
+- **`SystemParam` validation happens in `get_param` (0.19).** `SystemParam::validate_param` is gone; `get_param` returns `Result<Item, SystemParamValidationError>`. `SystemState::get`/`get_mut` now return `Result`, so add `.unwrap()` or `?`. Frequently-skipped systems (`Single`) now spawn a task before failing validation; add a `run_if` if that shows in profiles.
+- **Generic `ResMut<R>` needs `R: Resource<Mutability = Mutable>` (0.19)** because resources can be immutable. `Res<R>` is unchanged.
+- **`Command::Out` is an associated type (0.19).** `fn cmd() -> impl Command<Result>` → `impl Command`; `impl Command for Foo` must declare `type Out = ...`.
+- **`NextState::set_if_neq` → `set_if_different` (0.20).** `PendingIfNeq` → `PendingIfDifferent`, `set_state_if_neq` → `set_state_if_different`. `set()` always runs `OnExit`/`OnEnter`, and since 0.19 `DespawnOnEnter`/`DespawnOnExit` also fire on a same-state `set()`.
+- **`OnTransition { exited, entered }`**, not `{ from, to }`.
+- **`.chain_weak()`, `.before_weak()`, `.after_weak()` (0.20)** order only systems whose tracked data access conflicts. Bevy's own `PostUpdate` UI sets and render sets use them; dependencies through channels or interior mutability need an explicit `.after(system)`.
+- **No `SimpleExecutor` since 0.18.** Unordered conflicting systems run in arbitrary order and are *not* reported unless `ambiguity_detection` is raised. See [references/ordering.md](references/ordering.md).
+- **`MessageReader` / `MessageWriter`, not `EventReader` / `EventWriter`.** `#[derive(Message)]`, `app.add_message::<M>()` (0.17+).
+- **`remove_systems_in_set` returns `Result<usize, ScheduleError>`.** `Schedules::remove_systems_in_set` takes 4 args (`label, set, world, policy`); `Schedule::remove_systems_in_set` takes 3.
+- **`System::type_id` → `System::system_type` (0.19).** `DefaultErrorHandler` → `FallbackErrorHandler` (0.19); it now also receives panics (0.20).
+- **`WindowPlugin` exit systems run in `Last` (0.19)**, inside the `ExitSystems` set; systems after `Update` that rely on a window no longer panic on the final frame.
 
 ## See also
 
 - `bevy-core-concepts` — which schedule (`Startup`, `Update`, `FixedUpdate`) to add a system to.
 - `bevy-ecs-queries` — query is one of many `SystemParam`s; `Changed<T>` / `Added<T>` filters.
-- `bevy-ecs-components` — defining the `Component` types your systems act on.
-- `bevy-migration-0-17-to-0-18` — full Message/Event rename, `MaterialPlugin` changes.
+- `bevy-ecs-components` — defining the `Component` types your systems act on; observers.
+- `bevy-migration-0-18-to-0-19` — param validation, `Command::Out`, executor renames.
+- `bevy-migration-0-19-to-0-20` — exclusive unification, `chain_weak`, `set_if_different`.

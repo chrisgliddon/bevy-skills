@@ -97,9 +97,10 @@ If you use a **texture array** instead of a 2D atlas (one slice per tile),
 configure the sampler to `clamp_to_edge` per slice to eliminate bleeding:
 
 ```rust
-use bevy::render::texture::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
+use bevy::image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
 
-// Set on the Image before it reaches the GPU:
+// Set on the Image before it reaches the GPU (`bevy::image`, not the
+// stale `bevy::render::texture` path):
 image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
     address_mode_u: ImageAddressMode::ClampToEdge,
     address_mode_v: ImageAddressMode::ClampToEdge,
@@ -122,6 +123,9 @@ inter-tile bleeding at mip levels ≥ 1; use tile padding instead (see
 - **UV precision.** At very high tile counts (> 4096), `f32` UV coordinates
   may lose sub-texel precision on large atlases. Consider a 4096×4096 atlas
   split into two 2048×2048 atlases rather than one giant one.
+- **`Image::pixel_bytes` returns `Result` (0.19).** Debug code that samples
+  atlas texels on the CPU must `match` on `Ok(bytes)` / `Err(e)`; the 0.18
+  `if let Some(bytes)` form no longer compiles.
 - **Mip generation must account for padding.** Most GPU-side mip generators
   do not know about your padding convention; bake mips manually in your atlas
   tool using only the interior tile pixels at each level.

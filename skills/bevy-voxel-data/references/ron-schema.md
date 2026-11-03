@@ -60,11 +60,11 @@ Full field reference for `assets/blocks.ron`. See also
 | Field        | Type              | Required | Default   | Description |
 |---|---|---|---|---|
 | `name`       | `String`          | yes      | —         | Unique identifier; also the key in `Palette.by_name`. |
-| `visibility` | `Visibility` enum | yes      | —         | Controls face culling and draw-call batching. |
+| `visibility` | `BlockVisibility` enum | yes      | —         | Controls face culling and draw-call batching. |
 | `faces`      | `BlockFaces`      | no       | `None`    | Texture paths per face. Omit for fully invisible blocks (air). |
 | `flags`      | `Vec<String>`     | no       | `[]`      | Freeform tags consumed by game logic; serde defaults to empty vec. |
 
-### `Visibility` enum
+### `BlockVisibility` enum (RON key `visibility`)
 
 | Variant       | Effect |
 |---|---|

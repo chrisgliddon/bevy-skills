@@ -12,8 +12,8 @@ use bevy::{
         animated_field,
         animation_curves::{AnimatableCurve, AnimatableKeyframeCurve},
     },
-    math::curve::{EasingCurve, EaseFunction},
-    math::cubic_splines::CubicSegment,
+    curve::{EasingCurve, EaseFunction},
+    curve::cubic_splines::CubicSegment,
     prelude::*,
 };
 ```
@@ -54,7 +54,7 @@ fn build_procedural_clip() -> AnimationClip {
 ## EasingCurve — simple two-value lerp with easing
 
 ```rust
-use bevy::math::curve::{EasingCurve, EaseFunction};
+use bevy::curve::{EasingCurve, EaseFunction};
 
 // Interpolates Vec3 from start to end over t ∈ [0, 1]
 let rise = EasingCurve::new(
@@ -72,7 +72,7 @@ Common `EaseFunction` variants: `Linear`, `SineIn`, `SineOut`, `SineInOut`, `Cub
 ## CubicSegment::new_bezier_easing — CSS cubic-bezier
 
 ```rust
-use bevy::math::cubic_splines::CubicSegment;
+use bevy::curve::cubic_splines::CubicSegment;
 
 // CSS cubic-bezier(0.25, 0.1, 0.25, 1.0) — equivalent to "ease"
 let bezier = CubicSegment::new_bezier_easing([0.25_f32, 0.1], [0.25, 1.0]);
@@ -84,22 +84,30 @@ Arguments are `p1` and `p2` control points in the CSS convention (p0 = [0,0], p3
 
 ## UnevenSampleAutoCurve — auto-smooth between sparse keyframes
 
-`UnevenSampleAutoCurve` lives in `bevy::math::curve::sample_curves`. It fits a smooth curve through unevenly-spaced samples, avoiding the linear-interpolation staircase of `AnimatableKeyframeCurve` without requiring manual spline handle placement.
+`UnevenSampleAutoCurve` lives in `bevy::curve::sample_curves` (also in the prelude). It interpolates through unevenly spaced samples using the value type's own `StableInterpolate`, which for `Vec3` is a plain lerp but for `Quat` is slerp — so it is the right choice for rotation keys.
 
 ```rust
-// Illustrative — confirm exact constructor signature in docs.rs/bevy/0.18
-// The type exists; its constructor may require a specific trait bound on T.
-use bevy::math::curve::sample_curves::UnevenSampleAutoCurve;
+use bevy::prelude::*;
+
+fn smooth_rotation() -> UnevenSampleAutoCurve<Quat> {
+    // Samples are sorted and non-finite times dropped; fewer than 2 valid samples is an Err.
+    UnevenSampleAutoCurve::new([
+        (0.0_f32, Quat::IDENTITY),
+        (0.4, Quat::from_rotation_y(1.0)),
+        (1.0, Quat::from_rotation_y(2.5)),
+    ])
+    .expect("at least two finite-time samples")
+}
 ```
 
-Prefer `AnimatableKeyframeCurve` when you want linear keyframe control; prefer `UnevenSampleAutoCurve` for smooth motion-capture-style curves with sparse samples.
+Prefer `AnimatableKeyframeCurve` for clip curves (it already interpolates per type); prefer `UnevenSampleAutoCurve` when sampling by hand in a system.
 
 ## Non-clip tweening: a UI panel scale-up system
 
 When you don't need the full `AnimationClip` pipeline, sample a curve directly in `Update`:
 
 ```rust
-use bevy::math::curve::{EasingCurve, EaseFunction};
+use bevy::curve::{EasingCurve, EaseFunction};
 
 #[derive(Component)]
 struct ScaleTween {
@@ -136,7 +144,7 @@ This approach runs in `Update`, avoids `AnimationPlayer`, and has no scheduling 
 
 - `animated_field!` is NOT re-exported from `bevy::prelude`. Always import from `bevy::animation::animated_field`.
 - `AnimatableCurve` and `AnimatableKeyframeCurve` are in `bevy::animation::animation_curves`, not `bevy::animation` directly.
-- `EaseFunction` is in `bevy::math::curve`, not `bevy::animation`.
+- `EaseFunction`, `EasingCurve`, `CubicSegment`, and the sample curves are in `bevy::curve` (crate `bevy_curve`, split from `bevy_math` in 0.20). `bevy::math::curve::*` and `bevy::math::cubic_splines` no longer exist. `bevy::prelude` re-exports the `bevy_curve` prelude, so explicit imports are only needed for module paths.
 - `AnimatableKeyframeCurve::new` panics on unwrap if inputs are invalid — always `.expect()` or `.unwrap_or_else()`.
 
 ## See also

@@ -17,12 +17,15 @@ walks the library target's module tree to discover registered types.
 | Command | One-line description |
 |---------|---------------------|
 | `cargo es-fluent generate` | Walk the lib target; emit `.ftl` skeleton files for all discovered `EsFluent`-derived types |
-| `cargo es-fluent watch` | Continuous `generate` — re-runs on every source change. Use during development. |
+| `cargo es-fluent watch` | Continuous `generate` in a TUI — re-runs on every source change. Use during development. |
 | `cargo es-fluent check` | Verify that generated `.ftl` files are up-to-date and all message IDs are present. Exits non-zero on mismatch. Use in CI. |
 | `cargo es-fluent clean` | Delete all CLI-generated output from the asset directories |
 | `cargo es-fluent sync` | Bring secondary locale `.ftl` files in sync with the fallback locale's keys (adds missing keys as comments) |
 | `cargo es-fluent tree` | Print a tree of discovered namespaces, types, and message IDs |
-| `cargo es-fluent format` | Reformat `.ftl` files according to Fluent style conventions |
+| `cargo es-fluent fmt` | Format `.ftl` files (sorts keys A–Z). The subcommand is `fmt`, not `format`. |
+| `cargo es-fluent status` | Report whether generate / fmt / sync / clean / check are all current |
+| `cargo es-fluent doctor` | Read-only diagnosis of setup, build integration, managers, fallback readiness |
+| `cargo es-fluent add-locale <tag>` | Create a locale directory seeded from the fallback language |
 
 ---
 
@@ -58,6 +61,7 @@ developer added a new message variant but forgot to run `generate`.
 # After adding new variants to your message enum:
 cargo es-fluent generate   # regenerates fallback locale .ftl
 cargo es-fluent sync       # propagates skeleton entries to other locales
+cargo es-fluent add-locale de   # new locale, seeded from the fallback
 ```
 
 `sync` adds missing keys as commented-out placeholders, making it easy for

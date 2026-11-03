@@ -6,8 +6,9 @@
 
 Makes a type a **typed Fluent message**. Each variant maps to a Fluent message
 ID (derived from the variant name by converting `PascalCase` to `kebab-case`,
-e.g. `StartGame` → `start-game`). Provides the `ToFluentString` implementation
-used by the runtime lookup.
+e.g. `StartGame` → `start-game`). Provides the `FluentMessage` implementation
+(`to_fluent_string_with`) used by the runtime lookup. (`ToFluentString` was the
+pre-0.20 trait name.)
 
 ```rust
 #[derive(EsFluent)]
@@ -48,42 +49,44 @@ commands.spawn((
 
 ---
 
-## The `Component` derive bound
+## Trait bounds on `T` (0.21)
 
-`FluentText<T>` is bounded as follows (from
-`es-fluent-manager-bevy-0.18.12/src/registration.rs:27`):
+`FluentText<T>` and its registration are bounded as follows (from
+`es-fluent-manager-bevy-0.21.2/src/components.rs` and `src/registration.rs`):
 
 ```rust
-pub fn register_fluent_text<T>()
-where
-    T: ToFluentString + Clone + Component + Send + Sync + 'static,
+pub struct FluentText<T: FluentMessage> { pub value: T }
+
+fn register_fluent_text<T: es_fluent::FluentMessage + Send + Sync + 'static>(&mut self) -> &mut Self;
 ```
 
-This means your message enum `T` **must also derive `Component`**, even though
-`T` is conceptually "just" a message key. The reason: `FluentText<T>` stores a
-`T` internally, and the inventory machinery uses the `Component` bound to
-satisfy Bevy's ECS type-system constraints when registering the refresh system.
+`FluentText<T>` is the `Component`; `T` is not. The 0.18 bound
+(`ToFluentString + Clone + Component`) is gone, so `#[derive(Component)]` on the
+message enum is optional. `Clone` is still needed because `FluentText<T>` derives
+`Clone`.
 
 ```rust
-// All four derives are required for types used with FluentText<T>:
-#[derive(BevyFluentText, Clone, EsFluent, Component)]
+// Sufficient in 0.21:
+#[derive(BevyFluentText, Clone, EsFluent)]
 #[fluent(namespace = "ui")]
 pub enum UiMessage {
     StartGame,
 }
 ```
 
-Forgetting `Component` produces a trait-bound error at compile time from deep
-inside the `BevyFluentText` expansion — the error message does not always point
-at the missing derive.
+A missing `EsFluent` derive surfaces as "the trait `FluentMessage` is not
+implemented" from inside the `BevyFluentText` expansion.
 
 ---
 
 ## `Text::new("")` requirement
 
-`FluentText<T>` writes translated text into a sibling `Text` component on the
-same entity. You must spawn `Text::new("")` alongside it. If `Text` is absent,
-the refresh system silently skips the entity (no panic, no warning).
+`FluentText<T>` writes translated text into the `Text` component on the same
+entity and into `Text` components on its direct children (0.21
+`update_fluent_text_system`). Spawn `Text::new("")` alongside it, or give it a
+`Text` child. With neither, the refresh system silently skips the entity.
+Unchanged output does not mark `Text` as changed (`set_if_neq`), so change
+detection stays quiet between locale switches.
 
 ```rust
 // Correct: Text::new("") paired with FluentText
@@ -100,6 +103,13 @@ commands.spawn(FluentText::new(UiMessage::StartGame));
 
 ## `I18nPluginStartupError`
 
+`#[locale]` fields (0.21): mark a field whose value should be rebuilt from the
+new locale; `BevyFluentText` then registers through
+`register_fluent_text_from_locale`. The field type must implement
+`TryFrom<&LanguageIdentifier>`.
+
+
+
 If `I18nPlugin` fails to set up (invalid config, duplicate registration, missing
 `.ftl` files), it inserts an `I18nPluginStartupError` resource. Check for it in
 a startup system to implement graceful degradation or a user-visible error
@@ -108,7 +118,7 @@ screen:
 ```rust
 fn check_i18n_errors(error: Option<Res<I18nPluginStartupError>>) {
     if let Some(err) = error {
-        eprintln!("i18n setup failed: {:?}", *err);
+        eprintln!("i18n setup failed: {}", err.message());
     }
 }
 ```

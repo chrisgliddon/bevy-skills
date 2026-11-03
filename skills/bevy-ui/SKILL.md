@@ -1,47 +1,57 @@
 ---
 name: bevy-ui
-description: Use when building UI with `Node`, `Button`, `children![]`, `TextFont`, `InputFocus`, `BackgroundColor`, `BorderColor`, or `BorderRadius` in Bevy 0.18. Covers layout, text styling, interaction handling, colors, palettes, accessibility, and the frame-0 `Changed<Interaction>` invariant.
+description: Use when building Bevy 0.20 UI with `Node`, `ui_widgets::Button`, `Hovered` / `Pressed` / `Activate`, `children![]`, `TextFont` with `FontSource` and `FontSize`, `BorderRadius` / `CornerRadius`, `BackgroundColor`, `BorderColor`, `InputFocus`, or `AccessibleLabel`, or when `ui::Interaction` and `Changed<Interaction>` show deprecation warnings.
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:
   tier: "2"
   area: ui
-  bevy_version: "0.18"
+  bevy_version: "0.20"
 ---
 
-# Bevy 0.18 — UI
+# Bevy 0.20 — UI
 
 ## When to use this skill
 
 - Spawning any `Node`-based UI element (panels, buttons, text labels, overlays).
-- Handling `Button` interaction states (`Hovered`, `Pressed`, `None`).
-- Styling text with `TextFont`, `TextColor`, `TextShadow`.
-- Setting `BackgroundColor`, `BorderColor`, `BorderRadius` on a widget.
+- Reacting to a button: `Hovered`, `Has<Pressed>`, and the `Activate` event.
+- Styling text with `TextFont { font: FontSource, font_size: FontSize, .. }`, `TextColor`, `TextShadow`.
+- Setting `BackgroundColor`, `BorderColor`, or `Node::border_radius` (`BorderRadius` of `CornerRadius`).
 - Using palette constants from `bevy::color::palettes`.
-- Wiring up `InputFocus` for accessibility / screen-reader integration.
+- Wiring `InputFocus`, `TabIndex`, or `AccessibleLabel` for keyboard and screen-reader support.
 - Nesting child entities with `children![]` or `.with_children(...)`.
-- Debugging a button that shows the wrong color at frame 0 or frame 120.
+- Migrating code that used `ui::Interaction`, `Changed<Interaction>`, `font_size: 33.0`, or `font: handle` (0.18 forms).
 
 ## Canonical pattern
 
-Centered button — full-screen flex container, rounded pill button, text child.
+Headless `ui_widgets::Button`, styled by polling `Hovered` and `Pressed`, clicked via `Activate`. Mirrors `examples/ui/widgets/button.rs` in Bevy 0.20.1.
 
 ```rust
-use bevy::{input_focus::InputFocus, prelude::*};
+use bevy::{
+    color::palettes::basic::*,
+    picking::hover::Hovered,
+    prelude::*,
+    ui::Pressed,
+    ui_widgets::{observe, Activate, Button},
+};
 
 fn main() {
     App::new()
+        // DefaultPlugins already includes UiWidgetsPlugins and InputFocusPlugin.
         .add_plugins(DefaultPlugins)
-        .init_resource::<InputFocus>()
         .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
+        .add_systems(Update, update_button_appearance)
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+
+fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
-        // Full-screen flex container — centres the button.
+        // Full-screen flex container that centres the button.
         Node {
             width: percent(100),
             height: percent(100),
@@ -50,62 +60,68 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         children![(
-            Button,
-            Node {
-                width: px(150),
-                height: px(65),
-                border: UiRect::all(px(5)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border_radius: BorderRadius::MAX,
-                ..default()
-            },
-            // Spawn-time border is what appears at frame 0 — `Changed<Interaction>`
-            // does NOT fire on startup, so the `Interaction::None` arm below
-            // (which sets the border to BLACK) only runs after the first mouse
-            // event. This is the frame-0 invariant: see Gotchas #1 + references/gotchas.md.
-            BorderColor::all(Color::WHITE),
-            BackgroundColor(Color::BLACK),
-            children![(
-                Text::new("Button"),
-                TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 33.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                TextShadow::default(),
-            )]
+            button(&assets),
+            // `Button` fires `Activate` on a completed click (or Enter/Space when focused).
+            observe(|_activate: On<Activate>| {
+                info!("Button clicked!");
+            }),
         )],
     ));
 }
 
-fn button_system(
-    mut input_focus: ResMut<InputFocus>,
-    mut query: Query<
-        (Entity, &Interaction, &mut BackgroundColor, &mut BorderColor, &mut Button),
-        Changed<Interaction>,
+fn button(asset_server: &AssetServer) -> impl Bundle {
+    (
+        Button,             // headless widget: tracks `Pressed`, emits `Activate`
+        Hovered::default(), // picking backend keeps this up to date
+        Node {
+            width: px(150),
+            height: px(65),
+            border: UiRect::all(px(5)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            border_radius: BorderRadius::MAX, // pill
+            ..default()
+        },
+        BorderColor::all(Color::BLACK),
+        BackgroundColor(NORMAL_BUTTON),
+        children![(
+            Text::new("Button"),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(), // Handle -> FontSource
+                font_size: FontSize::Px(33.0),
+                ..default()
+            },
+            TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            TextShadow::default(),
+        )],
+    )
+}
+
+/// Poll `Hovered` + `Has<Pressed>` every frame and pick a look.
+fn update_button_appearance(
+    mut buttons: Query<
+        (&Hovered, Has<Pressed>, &mut BackgroundColor, &mut BorderColor, &Children),
+        With<Button>,
     >,
+    mut text_query: Query<&mut Text>,
 ) {
-    for (entity, interaction, mut bg, mut border, mut button) in &mut query {
-        match *interaction {
-            Interaction::Pressed => {
-                input_focus.set(entity);
-                *bg = BackgroundColor(Color::srgb(0.35, 0.75, 0.35));
-                *border = BorderColor::all(Color::srgb(1.0, 0.0, 0.0));
-                button.set_changed(); // signal accessibility system
+    for (hovered, pressed, mut color, mut border_color, children) in &mut buttons {
+        let Ok(mut text) = text_query.get_mut(children[0]) else { continue };
+        match (hovered.get(), pressed) {
+            (_, true) => {
+                **text = "Press".to_string();
+                *color = PRESSED_BUTTON.into();
+                border_color.set_all(RED);
             }
-            Interaction::Hovered => {
-                input_focus.set(entity);
-                *bg = BackgroundColor(Color::srgb(0.25, 0.25, 0.25));
-                *border = BorderColor::all(Color::WHITE);
-                button.set_changed();
+            (true, false) => {
+                **text = "Hover".to_string();
+                *color = HOVERED_BUTTON.into();
+                border_color.set_all(WHITE);
             }
-            Interaction::None => {
-                input_focus.clear();
-                *bg = BackgroundColor(Color::BLACK);
-                *border = BorderColor::all(Color::BLACK);
-                // No set_changed() for None — not required by the a11y system.
+            (false, false) => {
+                **text = "Button".to_string();
+                *color = NORMAL_BUTTON.into();
+                border_color.set_all(BLACK);
             }
         }
     }
@@ -116,30 +132,32 @@ fn button_system(
 
 | Topic | Reference |
 |---|---|
-| `Node`, `Val`, `FlexDirection`, `AlignItems`, layout recipes | [references/layout.md](references/layout.md) |
-| `Text::new`, `TextFont`, `TextColor`, `TextShadow`, default font swap | [references/text.md](references/text.md) |
-| `Button`, `Interaction`, `Changed<Interaction>`, footguns | [references/interaction.md](references/interaction.md) |
-| `BackgroundColor`, `BorderColor`, `BorderRadius` constructors | [references/colors-and-borders.md](references/colors-and-borders.md) |
+| `Node`, `Val` (`px`, `percent`, `em`, `rem`, `vw`, `vh`), flex recipes | [references/layout.md](references/layout.md) |
+| `Text::new`, `TextFont`, `FontSource`, `FontSize`, `TextLayout::justify` | [references/text.md](references/text.md) |
+| `ui_widgets::Button`, `Hovered`, `Pressed`, `Activate`, observers vs polling | [references/interaction.md](references/interaction.md) |
+| `BackgroundColor`, `BorderColor`, `BorderRadius` / `CornerRadius` | [references/colors-and-borders.md](references/colors-and-borders.md) |
 | `bevy::color::palettes::{basic,css,tailwind}` | [references/palettes.md](references/palettes.md) |
-| `InputFocus`, `init_resource`, `set` / `clear` | [references/accessibility.md](references/accessibility.md) |
+| `InputFocus`, `FocusCause`, `TabIndex`, `AccessibleLabel` | [references/accessibility.md](references/accessibility.md) |
 | `children![]` vs `.with_children(...)` | [references/children-macro.md](references/children-macro.md) |
-| Cross-cutting invariants, frame-0 trap, black-border bug | [references/gotchas.md](references/gotchas.md) |
+| Cross-cutting traps and stale-LLM output | [references/gotchas.md](references/gotchas.md) |
 
 ## Gotchas
 
-1. **`Changed<Interaction>` does NOT fire at frame 0.** The button shows its
-   spawn-time components (e.g. `BorderColor::all(Color::WHITE)`) on the first
-   frame, not the output of `button_system`. Screenshot-based parity tests
-   taken at frame 0 must account for this. See [references/gotchas.md](references/gotchas.md).
-
-2. **Call `button.set_changed()` in `Hovered` and `Pressed` arms.** This is a
-   manual dirty-marker required so the accessibility system re-processes the
-   button. Omitting it causes screen readers to miss focus changes. See
-   [references/interaction.md](references/interaction.md).
+1. **`ui::Interaction` and `ui::widget::Button` are deprecated in 0.20.** Both still sit in `bevy::prelude`, so `Button` from the prelude is the *old* one. Import `bevy::ui_widgets::Button` explicitly. Replace `Changed<Interaction>` matches with `&Hovered` + `Has<Pressed>` (both are *not* in the prelude: `bevy::picking::hover::Hovered`, `bevy::ui::Pressed`).
+2. **Clicks are an event, not a state.** `Activate` fires once per completed click; `Pressed` is only present while the pointer is held. Attach `observe(|_: On<Activate>| ..)` in the bundle or `commands.entity(e).observe(..)`.
+3. **`button.set_changed()` is gone with the old button.** `ui_widgets::Button` requires `AccessibilityNode(Role::Button)`; add `AccessibleLabel("...")` for the spoken name. No manual dirty-marking.
+4. **`InputFocus` is inserted by `DefaultPlugins` (0.19+).** Do not `init_resource` it. Fields are private: `get()`, `set(entity, FocusCause::Pressed)`, `clear()`. `FocusCause` gained `Auto` in 0.20; exhaustive matches must add it.
+5. **`TextFont` fields changed in 0.19.** `font: Handle<Font>` became `FontSource` (`handle.into()`, `FontSource::family("Fira Sans")`, `FontSource::sans_serif()`); `font_size: f32` became `FontSize::Px(f32)`. `TextFont::default()` is `FontSize::Rem(1.)` in 0.20 (20 px via `RemSize`), so set `FontSize::Px(20.)` for a fixed size. `FontSource::SansSerif` (0.19) is `FontSource::sans_serif()` in 0.20.
+6. **`BorderRadius` fields are `CornerRadius` in 0.20.** `BorderRadius::MAX` and `BorderRadius::px(..)` are unchanged; `BorderRadius::all(px(6))` works via `Into<CornerRadius>`; literal structs need `CornerRadius::circular(px(10.))`.
+7. **`Val::Em` / `Val::Rem` are new in 0.20.** `Val::resolve` takes `EmSize` and `RemSize` as two extra arguments.
+8. **Flat pointer events in 0.20.** `On<Pointer<Click>>` is `On<PointerClick>`; `press.pointer_location.position` is `press.pointer.position`.
+9. **`ui` is not implied by `2d` / `3d` since 0.19.** With `default-features = false`, add the `ui` feature collection (it also carries `bevy_ui_widgets` and `ui_picking`).
+10. **`TextLayout::new_with_justify` is `TextLayout::justify` (0.19).** `Justify` is in the prelude.
 
 ## See also
 
+- `bevy-migration-0-19-to-0-20` — full list of the button, pointer-event, and `Val` changes.
 - `bevy-cameras` — spawn a `Camera2d` alongside any UI scene.
-- `bevy-ecs-queries` — `Changed<T>`, `Added<T>`, query filters used in `button_system`.
+- `bevy-ecs-queries` — `Has<T>`, `Changed<T>`, and query filters used above.
 - `bevy-fluent` — localized UI text via `FluentText<T>`.
-- `bevy-cargo-features` — feature flags; the `ui` collection enables all UI crates.
+- `bevy-cargo-features` — the `ui` collection and what it enables.

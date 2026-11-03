@@ -2,7 +2,7 @@
 
 > Referenced from `bevy-animation/SKILL.md § The 12 Basic Principles`.
 
-These three principles all live in *time*. In Bevy 0.18 they map to `EaseFunction`,
+These three principles all live in *time*. In Bevy 0.20 they map to `EaseFunction`,
 clip duration / playback speed, and the build-up beat at the start of a keyframe
 sequence.
 
@@ -15,9 +15,9 @@ move at constant speed. "Slow in" = easing into a move; "slow out" = easing out 
 `EasingCurve` applies these shapes in Bevy without any authored keyframe density.
 
 ```rust
-use bevy::math::curve::{EasingCurve, EaseFunction};
+use bevy::curve::{EasingCurve, EaseFunction};
 use bevy::prelude::*;
-use bevy::math::cubic_splines::CubicSegment;
+use bevy::curve::cubic_splines::CubicSegment;
 
 // Standard ease-in-out: starts slow, peaks, ends slow.
 let smooth_move = EasingCurve::new(
@@ -55,7 +55,7 @@ Timing is the total duration of an action — how many frames/seconds it lasts. 
 timing reads as lighter or more urgent; slower timing reads as heavier or more
 deliberate.
 
-In Bevy 0.18, clip duration is determined at authoring time (in Blender/Maya or when
+In Bevy 0.20, clip duration is determined at authoring time (in Blender/Maya or when
 you build `AnimationClip` in code). At runtime you adjust it with playback speed:
 
 ```rust
@@ -112,9 +112,9 @@ transition duration only to control blend smoothness between clips.
   linearly between samples by default. Wrap values in `EasingCurve` or add denser
   keyframes to fake non-linear motion.
 - **`EaseFunction` and `EasingCurve` are not in `bevy::prelude`.** Import both
-  explicitly from `bevy::math::curve`:
-  `use bevy::math::curve::{EasingCurve, EaseFunction};`
-- **`CubicSegment::new_bezier_easing` is in `bevy::math::cubic_splines`**, not in
+  explicitly from `bevy::curve`:
+  `use bevy::curve::{EasingCurve, EaseFunction};`
+- **`CubicSegment::new_bezier_easing` is in `bevy::curve::cubic_splines`**, not in
   the animation module. Add that import explicitly.
 - **Transition duration ≠ anticipation.** A long `Duration` in
   `AnimationTransitions::play` blends *into* the clip from the prior pose. It does not

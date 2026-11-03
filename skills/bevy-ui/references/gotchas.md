@@ -1,115 +1,63 @@
-# Bevy 0.18 UI — Gotchas
+# Bevy 0.20 UI — Gotchas
 
-Cross-cutting invariants that don't belong to a single sub-topic. Most of these
-surfaced during the `ui_button` and `diplopod` parity rebuilds.
+Cross-cutting traps. Most describe what stale (0.18-era) LLM output looks like and the 0.20 form.
 
-## 1. `Changed<Interaction>` does NOT fire at frame 0
+## 1. The prelude `Button` is the deprecated one
 
-**The invariant:** `Changed<Interaction>` fires only when the component *changes*,
-not when it is first inserted. `Interaction::None` is inserted at spawn time.
-Until something changes that value, any system filtered by `Changed<Interaction>`
-will not run for that button.
+`use bevy::prelude::*; commands.spawn(Button)` compiles with a deprecation warning and gives you the old `Interaction`-driven widget. Write `use bevy::ui_widgets::Button;` so the import shadows the prelude. Stale code also pairs it with `Changed<Interaction>`; the 0.20 form is `&Hovered` + `Has<Pressed>` and an `On<Activate>` observer. See [interaction.md](interaction.md).
 
-**Consequence for visual state:** On frame 0 the button displays exactly what was
-spawned — its spawn-time `BorderColor`, `BackgroundColor`, etc. If the
-`Interaction::None` arm of your system would set different values, those do not
-take effect until the first interaction event (hover, press, or an internal Bevy
-focus event).
+## 2. The frame-0 `Changed<Interaction>` invariant is gone
 
-**Consequence for screenshot-based parity tests:** A screenshot taken at frame 0
-captures spawn-time values. A screenshot taken at frame 120 (after Bevy may have
-fired an internal interaction event) can differ. The parity test for `ui_button`
-was designed around this — if a rebuild sets `BorderColor::all(Color::BLACK)` at
-spawn time but the reference sets `BorderColor::all(Color::WHITE)`, they will
-differ at frame 0.
+0.18 skills warned that `Changed<Interaction>` never fires on frame 0, so the button showed spawn-time colours until the first hover. With polling on `Hovered` / `Has<Pressed>` the system runs every frame and converges immediately. Only the spawn-time `BorderColor` / `BackgroundColor` on the first rendered frame can still differ; the 0.20.1 example spawns the idle colours to avoid that.
 
-**Fix:** Make spawn-time component values consistent with what `Interaction::None`
-would produce, OR accept the frame-0 spawn appearance and let the interaction
-system converge on the correct state thereafter.
+## 3. `TextFont { font: handle, font_size: 33.0 }` does not compile
 
-See also: [interaction](interaction.md).
+Since 0.19 `font` is `FontSource` and `font_size` is `FontSize`:
 
----
+```rust
+TextFont {
+    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+    font_size: FontSize::Px(33.0),
+    ..default()
+}
+```
 
-## 2. `button.set_changed()` — required for accessibility
+`TextFont::default()` is `FontSize::Rem(1.)` in 0.20 (20 px with the default `RemSize`). Set `FontSize::Px(20.)` if the size must not follow `RemSize`.
 
-Calling `button.set_changed()` in the `Pressed` and `Hovered` arms of your
-interaction system is not optional if your app targets accessibility. It marks
-the `Button` component as mutated, which triggers `bevy_a11y` to refresh the
-button's node in the platform accessibility tree.
+## 4. `BorderRadius { top_left: px(8.), .. }` does not compile
 
-Without it:
-- Screen readers do not announce hover/press changes.
-- `InputFocus` changes alone are not sufficient to update the AT.
+Fields are `CornerRadius` in 0.20. Write `px(8.).into()` or `CornerRadius::circular(px(8.))`. Constructors (`BorderRadius::all`, `::top_left`, `::px`, `::MAX`) still work; they are no longer `const`.
 
-See also: [interaction](interaction.md), [accessibility](accessibility.md).
+## 5. `InputFocus` must not be initialised by hand
 
----
+`DefaultPlugins` includes `InputFocusPlugin` (0.19+). `input_focus.0` is private; use `get()` / `set(entity, FocusCause)` / `clear()`.
 
-## 3. The "white border → black border" bug
+## 6. `On<Pointer<Click>>` is `On<PointerClick>`
 
-**Symptoms:** A button spawned with `BorderColor::all(Color::WHITE)` shows a white
-border for exactly one frame, then switches to a black border without any user
-interaction. The switch happens around frame 60–120 depending on the platform.
+Flat pointer events (0.20). Fields moved: `event.pointer_location.position` → `event.pointer.position`; `event.pointer_id` → `event.pointer.id`. Generic code uses the `PointerEvent` trait.
 
-**Root cause:** Bevy's internal accessibility or focus system fires a synthetic
-`Interaction` event shortly after startup. When that fires, the
-`Interaction::None` arm of the `button_system` runs and overwrites the spawn-time
-border color with whatever the system sets (e.g. `BorderColor::all(Color::BLACK)`).
+## 7. `On<Insert, Pressed>` is `On<Insert<Pressed>>`
 
-**Why it's confusing:** The `Changed<Interaction>` query *did* fire — but from
-`None → None` triggered by Bevy's internal bookkeeping, not from a user action.
+The observer bundle generic moved onto the lifecycle event in 0.20.
 
-**Fix options:**
-1. Spawn the button with the border color that `Interaction::None` would set
-   (consistent spawn state). This is the approach in the parity reference.
-2. Track `Interaction` state explicitly and only mutate border color on
-   *meaningful* transitions (e.g. `None → Hovered`, `Hovered → Pressed`).
-
----
-
-## 4. `InputFocus` must be explicitly initialized
-
-`app.init_resource::<InputFocus>()` is required. `DefaultPlugins` does not insert
-`InputFocus`. Missing this causes a panic at schedule-build when any system
-requests `ResMut<InputFocus>`.
-
-See also: [accessibility](accessibility.md).
-
----
-
-## 5. `children![]` bundle grouping
-
-Each item in `children![]` is a *single* bundle. Multiple components for one
-child entity must be wrapped in a tuple:
+## 8. `children![]` bundle grouping
 
 ```rust
 // CORRECT — one child entity with three components
-children![(Button, Node { .. }, BackgroundColor(Color::BLACK))]
+children![(Button, Node { ..default() }, BackgroundColor(Color::BLACK))]
 
-// WRONG — three separate child entities (Button-only, Node-only, BackgroundColor-only)
-children![Button, Node { .. }, BackgroundColor(Color::BLACK)]
+// WRONG — three separate child entities
+children![Button, Node { ..default() }, BackgroundColor(Color::BLACK)]
 ```
 
-See also: [children-macro](children-macro.md).
+## 9. Missing UI after `default-features = false`
 
----
+Since 0.19 the `ui` collection is not implied by `2d` / `3d`. Add `ui` explicitly; it brings `bevy_ui_widgets`, `ui_picking`, and `bevy_input_focus`.
 
-## 6. Interaction requires both `Button` AND `Node`
+## 10. Text widgets split in 0.20
 
-A `Button` component alone is a marker. The UI hit-testing and `Interaction`
-update systems only run on entities that have both `Button` and `Node`. If a
-button never transitions from `Interaction::None`, check that the entity has a
-`Node` with a nonzero `width` and `height`.
+A working text field needs both `EditableText` (state) and `TextInput` (behaviour). `TextScroll` is gone; read `EditableText::viewport.offset`. `TextReader::iter` yields `TextLayoutItem`, not plain spans.
 
----
+## 11. Internal types that changed shape
 
-## 7. `bevy::input_focus::InputFocus` is not in the prelude
-
-```rust
-// Must import explicitly:
-use bevy::input_focus::InputFocus;
-
-// This will NOT compile — InputFocus is not in bevy::prelude:
-use bevy::prelude::*; // InputFocus not included
-```
+Only matters for custom layout or render code: `ComputedNode::stack_index` → `ComputedStackIndex` component (0.19); `CalculatedClip` is an enum (0.20); `ViewportNode.camera` is `Option<Entity>` (0.19); UI rendering is retained in 0.20 (`ExtractedUiNodes::changed`).

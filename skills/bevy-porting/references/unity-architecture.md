@@ -1,10 +1,10 @@
-# bevy-porting — Unity → Bevy 0.18 architecture
+# bevy-porting — Unity → Bevy 0.20 architecture
 
 > Referenced from `bevy-porting/SKILL.md § Unity (priority)`.
 
 ## Concept map
 
-| Unity | Bevy 0.18 |
+| Unity | Bevy 0.20 |
 |---|---|
 | `GameObject` | `Entity` |
 | `Transform` (with parent link) | `Transform` + `ChildOf` component |
@@ -17,7 +17,7 @@
 
 ## GameObject + Transform hierarchy → Entity + `ChildOf`
 
-In Bevy 0.18, parent-child relationships are expressed by inserting the `ChildOf` component on the child entity. There is no separate "hierarchy field" on `Transform`.
+In Bevy 0.20, parent-child relationships are expressed by inserting the `ChildOf` component on the child entity. There is no separate "hierarchy field" on `Transform`.
 
 ```rust
 commands.entity(child).insert(ChildOf(parent));
@@ -60,7 +60,7 @@ fn move_players(
 app.add_systems(Update, move_players);
 ```
 
-`Start()` maps to a `Startup` system or an `Added<Player>` query filter. `OnDestroy()` maps to `ComponentHooks::on_remove`.
+`Start()` maps to a `Startup` system, an `Added<Player>` query filter, or an `On<Add<Player>>` observer (0.20 form — the bundle generic sits on the event, not on `On`). `OnDestroy()` maps to `ComponentHooks::on_remove` or `On<Remove<Player>>`.
 
 ## Update() / FixedUpdate() → Bevy schedules
 
@@ -153,7 +153,7 @@ fn play_sfx(audio: Res<AudioManager>) { ... }
 
 ## Editor scripts (`[ExecuteInEditMode]`, `[CustomEditor]`)
 
-Bevy's editor story (`bevy_editor`) is under active development and not stable in 0.18. Skip porting editor-only code for now; implement runtime equivalents where needed.
+Bevy 0.20 ships editor building blocks (Feathers widgets, `PanOrbitCamera`, BSN scenes) but no shipped scene editor. Skip porting editor-only code for now; implement runtime equivalents where needed.
 
 ## See also
 

@@ -1,18 +1,16 @@
-# Bevy 0.18 — State schedules: OnEnter, OnExit, OnTransition
-
-This is the **parity-trial gap** topic. Neither `OnEnter` nor `OnExit` appeared in
-the previous skill body. This file closes that gap.
+# Bevy 0.20 — State schedules: OnEnter, OnExit, OnTransition
 
 ## The three state schedules
 
-Bevy creates three schedules automatically for every state type derived with
-`#[derive(States)]`:
+`#[derive(States)]` plus `app.init_state::<S>()` registers three schedule families:
 
 | Schedule | Fires | Use for |
 |----------|-------|---------|
-| `OnEnter(MyState::X)` | Once, immediately after the state transitions **into** `X`. | Spawning setup entities, loading assets, resetting timers. |
-| `OnExit(MyState::X)` | Once, immediately before leaving `X` (new state is set but not yet current). | Despawning setup entities, stopping audio, saving progress. |
-| `OnTransition { from: MyState::A, to: MyState::B }` | Once, for the specific A→B pair only. | Transition-specific effects (e.g. fade on A→B but not on C→B). |
+| `OnEnter(S::X)` | Once, right after the state transitions **into** `X`. | Spawning setup entities, loading assets, resetting timers. |
+| `OnExit(S::X)` | Once, right before leaving `X`. | Despawning setup entities, stopping audio, saving progress. |
+| `OnTransition { exited: S::A, entered: S::B }` | Once, for the specific A→B pair only. | Transition-specific effects (fade on A→B but not on C→B). |
+
+The fields are `exited` and `entered`. Stale LLM output writes `{ from, to }`, which does not compile.
 
 ## Minimal working example
 
@@ -20,37 +18,28 @@ Bevy creates three schedules automatically for every state type derived with
 use bevy::prelude::*;
 
 #[derive(States, Default, Hash, PartialEq, Eq, Clone, Debug)]
-enum AppState {
-    #[default]
-    Loading,
-    Playing,
-    Paused,
-}
+enum GameState { #[default] Loading, Playing, Paused }
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .init_state::<AppState>()
+fn wire_states(app: &mut App) {
+    app.init_state::<GameState>()
         // Fires once when entering Playing.
-        .add_systems(OnEnter(AppState::Playing), spawn_level)
-        // Fires once when leaving Playing (covers Paused and any other successor).
-        .add_systems(OnExit(AppState::Playing), despawn_level)
-        // Fires only on Playing → Paused, not on Playing → Loading.
+        .add_systems(OnEnter(GameState::Playing), spawn_level)
+        // Fires once when leaving Playing, whatever comes next.
+        .add_systems(OnExit(GameState::Playing), despawn_level)
+        // Fires only on Playing → Paused.
         .add_systems(
-            OnTransition { from: AppState::Playing, to: AppState::Paused },
+            OnTransition { exited: GameState::Playing, entered: GameState::Paused },
             freeze_animations,
         )
-        // Runs every tick while in Playing state (run condition approach).
-        .add_systems(Update, game_tick.run_if(in_state(AppState::Playing)))
-        .run();
+        // Runs every tick while in Playing (run condition approach).
+        .add_systems(Update, game_tick.run_if(in_state(GameState::Playing)));
 }
 
-/// Marker component so despawn_level only touches entities this system spawned.
 #[derive(Component)]
 struct LevelEntity;
 
 fn spawn_level(mut commands: Commands) {
-    commands.spawn((LevelEntity, Name::new("level"), /* ... */));
+    commands.spawn((LevelEntity, Name::new("level")));
 }
 
 fn despawn_level(mut commands: Commands, query: Query<Entity, With<LevelEntity>>) {
@@ -59,51 +48,50 @@ fn despawn_level(mut commands: Commands, query: Query<Entity, With<LevelEntity>>
     }
 }
 
-fn freeze_animations(/* ... */) {}
-
-fn game_tick(/* ... */) {}
+fn freeze_animations() {}
+fn game_tick() {}
 ```
 
 ## Registering states with `init_state`
 
-Use `app.init_state::<S>()`. This inserts both `State<S>` (current) and
-`NextState<S>` (pending) resources, and registers the three schedule families.
-
-Do NOT manually insert `State<S>` — `init_state` does all the wiring.
+`app.init_state::<S>()` inserts `State<S>` (current) and `NextState<S>` (pending) and registers the schedules. Do not insert `State<S>` by hand.
 
 ## Driving transitions with `NextState<S>`
 
-Set the next state from any system by writing to `NextState<S>`:
-
 ```rust
-fn check_loading(
-    mut next_state: ResMut<NextState<AppState>>,
-    // ...
-) {
+fn check_loading(mut next_state: ResMut<NextState<GameState>>) {
     if loading_complete() {
-        next_state.set(AppState::Playing);
+        next_state.set(GameState::Playing);
     }
 }
 ```
 
-The transition is applied at the end of the current schedule run. `OnExit` of
-the old state and `OnEnter` of the new state fire immediately after.
+The transition applies in `StateTransition`, which runs after `PreUpdate` and before `Update` on the next frame. `OnExit` of the old state then `OnEnter` of the new state run during that transition.
 
-## `set` vs `set_if_neq` — the always-fires change
+## `set` vs `set_if_different`
 
-In Bevy 0.18, calling `next_state.set(S::X)` **always** marks `NextState` as
-changed, even if `S::X` is already the current state. This means `OnExit` and
-`OnEnter` will fire again unnecessarily.
+`next_state.set(S::X)` **always** schedules a transition, even if `X` is already current. That re-runs `OnExit(X)`, `OnEnter(X)` and (since 0.19) `DespawnOnEnter`/`DespawnOnExit` for `X`.
 
-Use `set_if_neq` when you want the old 0.17 behaviour — only transition if the
-value actually differs:
+`set_if_different` (renamed from `set_if_neq` in 0.20; the old name is deprecated) is a no-op when the target equals the current state:
 
 ```rust
-// 0.18 default: always transitions (re-fires OnExit/OnEnter even if already in X)
-next_state.set(AppState::Playing);
+// Re-fires OnExit/OnEnter even if already Playing.
+next_state.set(GameState::Playing);
 
-// Preferred: no-op if already in Playing
-next_state.set_if_neq(AppState::Playing);
+// No-op if already Playing.
+next_state.set_if_different(GameState::Playing);
+```
+
+Related renames in 0.20: `NextState::PendingIfNeq` → `PendingIfDifferent`, `CommandsStatesExt::set_state_if_neq` → `set_state_if_different`.
+
+## Automatic cleanup: `DespawnOnExit` / `DespawnOnEnter`
+
+Attach `DespawnOnExit(S::X)` to an entity and Bevy despawns it when leaving `X`; `DespawnOnEnter(S::X)` despawns on entering `X`. 0.20 batches this with `despawn_all`, roughly 1.5× faster than per-entity despawns.
+
+```rust
+fn spawn_scoped(mut commands: Commands) {
+    commands.spawn((LevelEntity, DespawnOnExit(GameState::Playing)));
+}
 ```
 
 ## Schedule vs run condition — when to use which
@@ -111,28 +99,18 @@ next_state.set_if_neq(AppState::Playing);
 | Situation | Approach |
 |-----------|----------|
 | One-shot setup on entering a state | `OnEnter(S::X)` |
-| One-shot cleanup on leaving a state | `OnExit(S::X)` |
-| Specific A→B transition effect | `OnTransition { from, to }` |
+| One-shot cleanup on leaving a state | `OnExit(S::X)` or `DespawnOnExit(S::X)` |
+| Specific A→B transition effect | `OnTransition { exited, entered }` |
 | Tick-by-tick logic while in a state | `Update` + `.run_if(in_state(S::X))` |
-| Logic that runs in several states | `Update` + `.run_if(in_state(A).or(in_state(B)))` |
+| Logic that runs in several states | `Update` + `.run_if(in_state(A).or_else(in_state(B)))` |
 
-Mixing both approaches is fine and common: use `OnEnter` to spawn entities, use
-`in_state` to tick them, use `OnExit` to clean up.
+## Sub-states and computed states (brief)
 
-## State stacks, sub-states, computed states (brief)
-
-Bevy 0.18 also supports:
-- **Sub-states** (`#[derive(SubStates)]`) — a state whose existence depends on a
-  parent state. Useful for "in-game-menu within gameplay".
-- **Computed states** (`#[derive(ComputedStates)]`) — a state derived from one
-  or more other states. Useful for "is the player in any combat state?".
-- **Freeable states** — states removed from the world entirely when not active.
-
-These are more advanced patterns. A dedicated `bevy-states` skill can cover them
-in depth; this file focuses on the core `OnEnter`/`OnExit` gap.
+- **Sub-states** (`#[derive(SubStates)]`) exist only while a parent state matches ("in-game menu within gameplay").
+- **Computed states** (`#[derive(ComputedStates)]`) derive from other states ("is the player in any combat state?").
 
 ## See also
 
-- [run-conditions.md](run-conditions.md) — `in_state`, `state_changed`, and composing conditions.
+- [run-conditions.md](run-conditions.md) — `in_state`, `state_changed`, combinators.
 - [system-sets.md](system-sets.md) — ordering work that runs inside a state.
 - `bevy-core-concepts` — which schedule (`Startup`, `Update`, `FixedUpdate`) a system belongs in.

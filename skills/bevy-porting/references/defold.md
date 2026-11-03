@@ -1,4 +1,4 @@
-# bevy-porting — Defold → Bevy 0.18
+# bevy-porting — Defold → Bevy 0.20
 
 > Referenced from `bevy-porting/SKILL.md § Engine coverage`.
 
@@ -6,15 +6,15 @@ Defold is a Lua-scripted 2D-first engine (limited 3D). Game objects (`.go`) carr
 
 ## Concept map
 
-| Defold | Bevy 0.18 |
+| Defold | Bevy 0.20 |
 |---|---|
 | Game object (`.go`) | `Entity` + `Bundle` |
 | `script` component (Lua behaviour) | `System` functions |
 | `sprite` component | `Sprite` + `Handle<Image>` |
-| `tilemap` component | `bevy_ecs_tilemap` (community crate) |
+| `tilemap` component | `bevy_ecs_tilemap` (community crate, 0.20 targets Bevy 0.20) |
 | `factory` component (spawner) | spawn function called from a system |
 | `collisionobject` | `bevy_rapier2d` collider or `avian2d` |
-| `.collection` (scene hierarchy) | spawn function or `DynamicScene` |
+| `.collection` (scene hierarchy) | spawn function, `bsn!` template, or `DynamicWorld` |
 | `go.property("speed", 100)` | `#[derive(Component)] struct Speed(pub f32)` |
 | Camera (orthographic 2D) | `Camera2d` |
 
@@ -39,7 +39,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 ## Lua lifecycle → Bevy schedules
 
-| Defold (Lua) | Bevy 0.18 |
+| Defold (Lua) | Bevy 0.20 |
 |---|---|
 | `init(self)` | `Startup` system |
 | `update(self, dt)` | `Update` system + `Res<Time>` |
@@ -57,26 +57,26 @@ fn move_player(mut query: Query<(&Speed, &mut Transform), With<Player>>, time: R
 
 ## Message passing → Bevy messages / events
 
-Defold's `msg.post` / `on_message` is similar to Bevy 0.18's typed message system. Map each Defold message hash to a Rust type:
+Defold's `msg.post` / `on_message` is similar to Bevy 0.20's typed message system (`Message`, `MessageWriter`, `MessageReader` — the pre-0.17 `Event`/`EventWriter` names are gone). Map each Defold message hash to a Rust type:
 
 ```rust
 // Defold: msg.post(".", hash("walk"), { dir = 1 })
-#[derive(Event)]
+#[derive(Message)]
 struct WalkRequest { dir: f32 }
 
-fn send_walk(mut writer: EventWriter<WalkRequest>, input: Res<ButtonInput<KeyCode>>) {
+fn send_walk(mut writer: MessageWriter<WalkRequest>, input: Res<ButtonInput<KeyCode>>) {
     if input.pressed(KeyCode::ArrowRight) {
-        writer.send(WalkRequest { dir: 1.0 });
+        writer.write(WalkRequest { dir: 1.0 });
     }
 }
-fn handle_walk(mut events: EventReader<WalkRequest>, mut query: Query<&mut Transform, With<Player>>) {
+fn handle_walk(mut events: MessageReader<WalkRequest>, mut query: Query<&mut Transform, With<Player>>) {
     for ev in events.read() {
         for mut tf in &mut query { tf.translation.x += ev.dir * 4.0; }
     }
 }
 ```
 
-Cross-link: **`bevy-ecs-systems`** (event and observer patterns).
+Cross-link: **`bevy-ecs-systems`** (message and observer patterns).
 
 ## Collections → scene composition
 
@@ -84,7 +84,7 @@ Defold collections nest game objects and sub-collections. Bevy equivalents:
 
 - **Spawn function** — a regular Rust `fn` that calls `commands.spawn(...)` for each object; cleanest for code-first ports.
 - **glTF** — export visual geometry from Defold (via FBX/OBJ intermediate); load with `bevy_gltf`.
-- **`DynamicScene`** — serialisable ECS snapshot; use when you want round-trippable scene data.
+- **`DynamicWorld`** (`bevy::world_serialization`, the 0.18 `DynamicScene`) — serialisable ECS snapshot; use when you want round-trippable scene data. `bsn!` templates (`bevy::scene`) are the code-first alternative.
 
 ## Sprite atlases (`.atlas`)
 
@@ -127,7 +127,7 @@ No script is bundled for Defold because the workflow is mostly editing rather th
 
 ## Build / deploy
 
-| Defold | Bevy 0.18 |
+| Defold | Bevy 0.20 |
 |---|---|
 | `bob.jar` build CLI | `cargo build --release --target <triple>` |
 | HTML5 export | `wasm32-unknown-unknown` + `wasm-bindgen` |
@@ -147,5 +147,5 @@ Cross-link: **`bevy-cargo-features`**, **`bevy-wasm-webgpu`**.
 
 - [`../SKILL.md`](../SKILL.md) — bevy-porting dispatcher
 - [`phaser.md`](phaser.md) — sibling 2D-engine context; sprite-sheet animation + tween patterns
-- `bevy-ecs-systems` — event writers/readers, observers, `On<E>` pattern
+- `bevy-ecs-systems` — message writers/readers, observers, `On<E>` pattern
 - `bevy-wasm-webgpu` — Defold HTML5 export → `wasm32-unknown-unknown`

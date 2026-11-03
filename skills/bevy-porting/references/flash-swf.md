@@ -1,4 +1,4 @@
-# bevy-porting — Flash / SWF → Bevy 0.18
+# bevy-porting — Flash / SWF → Bevy 0.20
 
 > Referenced from `bevy-porting/SKILL.md § Engine coverage`.
 
@@ -70,9 +70,9 @@ For AS3, `ffdec` emits `.as` source under `scripts/`. Grep these files for `cons
 
 ## Vector animation note
 
-Flash's `DefineShape` records describe vector paths that play as timeline animations. `ffdec` can export shapes to SVG, but Bevy 0.18 core does not load SVG.
+Flash's `DefineShape` records describe vector paths that play as timeline animations. `ffdec` can export shapes to SVG, but Bevy 0.20 core does not load SVG.
 
-**Pragmatic recommendation: bake vector clips to PNG sprite-sheets.** Use ffdec's GUI or CLI to export each MovieClip at your target resolution (e.g. 2× the original SWF stage size) as a numbered PNG sequence, then treat them as raster sprites. Community crates (`bevy_prototype_lyon`) can draw vector primitives, but they do not reconstruct Flash's timeline system.
+**Pragmatic recommendation: bake vector clips to PNG sprite-sheets.** Use ffdec's GUI or CLI to export each MovieClip at your target resolution (e.g. 2× the original SWF stage size) as a numbered PNG sequence, then treat them as raster sprites. Community crates (`bevy_prototype_lyon` — 0.17 still targets Bevy 0.19 as of 2026-11) can draw vector primitives, but they do not reconstruct Flash's timeline system.
 
 ## Audio
 
@@ -99,7 +99,7 @@ Transcribe these into Bevy `Asset<T>` configs (`.ron` or `.json`) loaded via `As
 ## See also
 
 - [`../SKILL.md`](../SKILL.md) — bevy-porting dispatcher and general porting principles
-- [`phaser.md`](phaser.md) — Phaser 3 → Bevy 0.18; sprite-sheet animation pattern used for MovieClip exports
+- [`phaser.md`](phaser.md) — Phaser 3 → Bevy 0.20; sprite-sheet animation pattern used for MovieClip exports
 - [`javascript.md`](javascript.md) — vanilla JS / Canvas → Bevy; useful if the Flash game had a companion JS version
 - `bevy-ui` — re-creating Flash UI elements (buttons, text, panels) in Bevy's `Node` / Taffy system
 - `bevy-animation` — `AnimationGraph`, sprite-sheet patterns for baked MovieClip sequences

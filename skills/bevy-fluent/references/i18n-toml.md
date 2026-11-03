@@ -25,7 +25,9 @@ fallback_language = "en"
 assets_dir = "assets/locales"
 ```
 
-No other top-level keys are defined in `es-fluent-manager-bevy 0.18.x`.
+`es-fluent 0.21` test fixtures also accept an optional `domains = ["ui"]` list
+(restricts which FTL domains the crate owns). Omit it unless you split messages
+across crates; consult the `es-fluent` README for its exact semantics.
 
 ---
 
@@ -81,6 +83,11 @@ I18nPlugin::with_config(
 `with_asset_path` takes a path **relative to the Bevy asset directory** (not
 the crate root). By default the Bevy asset directory is `assets/`, so
 `with_asset_path("i18n")` loads from `assets/i18n/`.
+
+`I18nPluginConfig::default()` (0.21) is `initial_language = en-US`,
+`asset_path = "locales"`. `I18nPluginConfig` is a `bon` builder, so
+`I18nPluginConfig::builder().initial_language(langid!("en")).asset_path("i18n").build()`
+also works.
 
 ---
 

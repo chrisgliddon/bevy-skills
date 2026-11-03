@@ -1,138 +1,100 @@
-# Bevy 0.18 UI — Interaction
+# Bevy 0.20 UI — Interaction
 
 ## Quick reference
 
-| Item | Purpose |
-|---|---|
-| `Button` | Marker component — makes a `Node` entity respond to mouse/touch. |
-| `Interaction` | Component on the button entity; updated each frame by Bevy. |
-| `Interaction::None` | Cursor not over the button (or button not hovered/pressed). |
-| `Interaction::Hovered` | Cursor over the button, not pressed. |
-| `Interaction::Pressed` | Button actively pressed. |
-| `Changed<Interaction>` | ECS filter — query only runs for entities whose `Interaction` changed. |
+| Item | Path | Purpose |
+|---|---|---|
+| `Button` | `bevy::ui_widgets::Button` | Headless widget. Tracks `Pressed`, fires `Activate`. Requires `AccessibilityNode(Role::Button)`. |
+| `Hovered(pub bool)` | `bevy::picking::hover::Hovered` | Insert `Hovered::default()`; the picking backend updates it only on enter/leave. `.get()` reads it. |
+| `Pressed` | `bevy::ui::Pressed` | Unit marker inserted while the pointer is held on the button. Query with `Has<Pressed>`. |
+| `Activate { entity }` | `bevy::ui_widgets::Activate` | `EntityEvent` fired on click release, or Enter/Space when focused. |
+| `ActivateOnPress` | `bevy::ui_widgets::ActivateOnPress` | Marker: fire `Activate` on pointer down (menus). |
+| `InteractionDisabled` | `bevy::ui::InteractionDisabled` | Marker: button ignores input. Branch on `Has<InteractionDisabled>` to grey it out. |
+| `observe(..)` | `bevy::ui_widgets::observe` | Bundle helper that attaches an observer to the spawned entity. |
+
+None of `Button`, `Hovered`, `Pressed` are in `bevy::prelude`. The prelude `Button` is the deprecated `ui::widget::Button`.
 
 ## Common patterns
 
-### Standard interaction system
+### Polling system (the canonical pattern)
 
 ```rust
-use bevy::{input_focus::InputFocus, prelude::*};
+use bevy::{picking::hover::Hovered, prelude::*, ui::Pressed, ui_widgets::Button};
 
-fn button_system(
-    mut input_focus: ResMut<InputFocus>,
-    mut query: Query<
-        (Entity, &Interaction, &mut BackgroundColor, &mut BorderColor, &mut Button),
-        Changed<Interaction>,
-    >,
+fn style_buttons(
+    mut query: Query<(&Hovered, Has<Pressed>, &mut BackgroundColor), With<Button>>,
 ) {
-    for (entity, interaction, mut bg, mut border, mut button) in &mut query {
-        match *interaction {
-            Interaction::Pressed => {
-                input_focus.set(entity);
-                *bg = BackgroundColor(Color::srgb(0.35, 0.75, 0.35));
-                *border = BorderColor::all(Color::srgb(1.0, 0.0, 0.0));
-                button.set_changed(); // required — see Pitfalls
-            }
-            Interaction::Hovered => {
-                input_focus.set(entity);
-                *bg = BackgroundColor(Color::srgb(0.25, 0.25, 0.25));
-                *border = BorderColor::all(Color::WHITE);
-                button.set_changed();
-            }
-            Interaction::None => {
-                input_focus.clear();
-                *bg = BackgroundColor(Color::srgb(0.15, 0.15, 0.15));
-                *border = BorderColor::all(Color::BLACK);
-                // No set_changed() needed for None.
-            }
-        }
+    for (hovered, pressed, mut bg) in &mut query {
+        *bg = match (hovered.get(), pressed) {
+            (_, true) => BackgroundColor(Color::srgb(0.35, 0.75, 0.35)),
+            (true, false) => BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+            (false, false) => BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+        };
     }
 }
 ```
 
-### Reading interaction without mutation
+### Click handling with `Activate`
 
 ```rust
-use bevy::prelude::*;
+use bevy::{prelude::*, ui_widgets::{observe, Activate, Button}};
 
-fn log_clicks(query: Query<&Interaction, (Changed<Interaction>, With<Button>)>) {
-    for interaction in &query {
-        if *interaction == Interaction::Pressed {
-            println!("Button clicked!");
-        }
-    }
-}
-```
-
-### Multiple buttons with a tag component
-
-```rust
-use bevy::prelude::*;
-
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 enum MenuAction { Play, Quit }
 
-fn menu_system(
-    query: Query<(&Interaction, &MenuAction), (Changed<Interaction>, With<Button>)>,
-) {
-    for (interaction, action) in &query {
-        if *interaction == Interaction::Pressed {
-            match action {
-                MenuAction::Play => { /* start game */ }
-                MenuAction::Quit => { /* exit */ }
+fn spawn_menu_button(mut commands: Commands) {
+    commands.spawn((
+        Button,
+        MenuAction::Play,
+        Node { width: px(200), height: px(48), ..default() },
+        observe(|activate: On<Activate>, actions: Query<&MenuAction>| {
+            match actions.get(activate.entity) {
+                Ok(MenuAction::Play) => info!("play"),
+                Ok(MenuAction::Quit) => info!("quit"),
+                Err(_) => {}
             }
-        }
+        }),
+    ));
+}
+```
+
+### Observers instead of polling
+
+`Pressed` is inserted and removed, so lifecycle observers see every transition. The bundle generic moved onto the event type in 0.20: `On<Insert<Pressed>>`, not `On<Insert, Pressed>`.
+
+```rust
+use bevy::{prelude::*, ui::Pressed, ui_widgets::Button};
+
+fn on_pressed(insert: On<Insert<Pressed>>, mut bg: Query<&mut BackgroundColor, With<Button>>) {
+    if let Ok(mut bg) = bg.get_mut(insert.entity) {
+        *bg = BackgroundColor(Color::srgb(0.35, 0.75, 0.35));
     }
+}
+
+fn on_released(remove: On<Remove<Pressed>>, mut bg: Query<&mut BackgroundColor, With<Button>>) {
+    if let Ok(mut bg) = bg.get_mut(remove.entity) {
+        *bg = BackgroundColor(Color::srgb(0.15, 0.15, 0.15));
+    }
+}
+// app.add_observer(on_pressed).add_observer(on_released);
+```
+
+### Raw pointer events (no widget)
+
+```rust
+use bevy::prelude::*;
+
+fn on_click(click: On<PointerClick>) {
+    // 0.20: flat events. 0.19 was On<Pointer<Click>> with click.pointer_location.position.
+    info!("clicked {} at {:?}", click.entity, click.pointer.position);
 }
 ```
 
 ## Pitfalls
 
-### 1. `button.set_changed()` is required for accessibility
-
-`Button::set_changed()` marks the `Button` component as mutated, which triggers
-the accessibility system (`bevy_a11y`) to re-read the button's state and update
-the AT (assistive technology) tree. If you omit it in `Pressed` and `Hovered`
-arms, focus changes will be silent to screen readers.
-
-```rust
-// CORRECT — accessibility sees the press
-Interaction::Pressed => {
-    button.set_changed();
-    // ...
-}
-
-// WRONG — accessibility misses this press
-Interaction::Pressed => {
-    // ... (no set_changed)
-}
-```
-
-### 2. `Changed<Interaction>` does NOT fire at frame 0
-
-At startup the `Interaction` component is inserted as `Interaction::None`. The
-`Changed` filter fires only when a component *changes*, not when it is first
-inserted (that is `Added<T>`). On frame 0, `button_system` does not run for any
-button.
-
-**Consequence:** The button's visual state on frame 0 is exactly what was
-spawned — the `BorderColor`, `BackgroundColor`, etc. you set in `setup`. If
-your spawn-time configuration and your `Interaction::None` arm differ, the
-button will show the *spawn-time* values until the user hovers or Bevy fires an
-internal interaction event.
-
-This is the root cause of the "white border at spawn, black border after first
-hover" bug. See [gotchas](gotchas.md) for the full explanation and the
-screenshot-parity implication.
-
-### 3. `Button` without `Node` does nothing
-
-`Button` requires `Node` to participate in layout and receive hit-testing.
-A free-floating `Button` component with no `Node` sibling will never register
-`Interaction` changes.
-
-### 4. `Interaction` is not inherited by children
-
-Only the entity that has both `Button` and `Node` receives `Interaction` updates.
-Child text or icon entities will not. Query for `Children` on the button and
-fetch the text separately (see canonical pattern in SKILL.md).
+1. **`Interaction` is deprecated (0.20).** `Changed<Interaction>` compiles with a warning but is on its way out. Migrate to `Hovered` + `Has<Pressed>`; `Interaction::None` has no replacement because absence of both is the idle state.
+2. **No `Hovered` component, no hover.** The picking backend only maintains `Hovered` on entities that carry it. Spawn `Hovered::default()` on the button.
+3. **`Hovered` is immutable (`#[component(immutable)]`).** Read it with `&Hovered`; never `&mut Hovered`.
+4. **`Hovered` covers descendants.** It is `true` while the pointer is over the entity or any child (CSS `:hover` semantics), so the text child does not need its own.
+5. **`Button` still needs a `Node` with a size.** Hit-testing uses the `ComputedNode` rect; a zero-size node never hovers.
+6. **Keyboard activation needs focus.** Enter/Space fire `Activate` only when the button holds `InputFocus`. Add `TabIndex(0)` under a `TabGroup` with `TabNavigationPlugin` — see [accessibility.md](accessibility.md).

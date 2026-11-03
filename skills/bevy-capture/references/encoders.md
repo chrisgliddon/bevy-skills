@@ -8,7 +8,7 @@ The headline differentiator of `bevy_capture`: **fully in-process, no shell-out*
 
 **Cargo feature:** `mp4_openh264`.
 
-**Construction:** `Mp4Openh264Encoder::new(writer, width, height) -> Result<Self, _>`. The writer is any `Write` (e.g. `std::fs::File`).
+**Construction:** `Mp4Openh264Encoder::new(writer, width: u16, height: u16) -> Result<Self, _>`. The writer is any `Write + Seek` (e.g. `std::fs::File`). `new_with_config` exposes the OpenH264 encoder config.
 
 **License note:** OpenH264 ships under Cisco's OBQI (Open Binary Quality Interface) terms. Cisco covers the H.264 baseline-profile royalty. If your project policy forbids non-MIT/Apache runtime binaries, use one of the ffmpeg encoders instead.
 
@@ -35,12 +35,21 @@ Spawns a long-running `ffmpeg` child at `Capture::start()` and pipes raw RGBA fr
 
 **Cargo feature:** `mp4_ffmpeg_cli_pipe` (a *separate* feature from `mp4_ffmpeg_cli` — enabling one does not enable the other).
 
-**Construction:** `Mp4FfmpegCliPipeEncoder::new(path) -> Result<Self, _>` then chain `.with_framerate`, `.with_crf`, `.with_preset(String)`, etc.
+**Construction:** `Mp4FfmpegCliPipeEncoder::new(path) -> Result<Self, _>` then chain `.with_framerate(u32)`, `.with_crf(u32)`, `.with_preset(impl Into<String>)`, `.with_hardware_encoder(impl Into<String>)` (or `Mp4FfmpegCliPipeEncoder::detect_hardware_encoder()`), `.with_resolution(w, h)`.
 
 **Requirement:** `ffmpeg` on `$PATH` at startup (the child is spawned eagerly).
 
 **Pros:** Memory-efficient for long recordings; output file grows incrementally.
 **Cons:** Any ffmpeg crash mid-run corrupts the output. Pipe backpressure can stall the render loop on slow storage.
+
+## GifEncoder
+
+In-process GIF writer built on the `image` crate's GIF support. `GifEncoder::new(writer)` or `new_with_speed(writer, speed)`, then `.with_repeat(Repeat::Infinite)`.
+
+**Cargo feature:** `gif`.
+
+**Pros:** No system dependency; good for README loops and short visual-regression artefacts.
+**Cons:** 256-colour palette; large files for long clips.
 
 ## FramesEncoder
 
@@ -50,19 +59,24 @@ Writes one PNG per rendered frame into a specified output directory. No video en
 
 **Construction:** `FramesEncoder::new(dir_path)`. The directory is created at first frame; no `Result`.
 
-**Pros:** Lossless; zero system dependencies; trivial to debug — you can open frame N in any viewer. **Note on WASM:** `FramesEncoder` is the only encoder that compiles for `wasm32-unknown-unknown`, but writing frames requires JS interop or a virtual FS (e.g. Emscripten) — there is no out-of-the-box filesystem in a browser WASM context. See `bevy-wasm-webgpu` for the full WASM build path.
+**Pros:** Lossless; zero system dependencies; trivial to debug — you can open frame N in any viewer. **Note on WASM:** `FramesEncoder` and `GifEncoder` have no native dependency, but writing output requires JS interop or a virtual FS — there is no out-of-the-box filesystem in a browser WASM context. See `bevy-wasm-webgpu` for the full WASM build path.
 **Cons:** Large output (3–10× MP4 for the same content); must be assembled into video separately.
+
+## Combining encoders
+
+`Capture::start` accepts a tuple (up to 15) or a `Vec<Box<dyn Encoder>>`, so one recording can write an MP4, a GIF and a PNG sequence at once. Each encoder receives every frame; the cost is additive.
 
 ## Choosing in practice
 
 ```
-Need WASM support?                     → FramesEncoder
+Need WASM support?                     → FramesEncoder / GifEncoder
 Need in-process, no system deps?       → Mp4Openh264Encoder
 Need ffmpeg codec control, short clip? → Mp4FfmpegCliEncoder
 Need ffmpeg, memory-efficient, long?   → Mp4FfmpegCliPipeEncoder
+Need a looping preview?                → GifEncoder
 ```
 
 ## See also
 
 - [`SKILL.md`](../SKILL.md) — dispatcher with canonical pattern.
-- [`bevy-0-18-patch.md`](bevy-0-18-patch.md) — patches to build 0.4.1 against Bevy 0.18.
+- [`bevy-0-20-port.md`](bevy-0-20-port.md) — porting 0.6.0 (Bevy 0.19) to Bevy 0.20.

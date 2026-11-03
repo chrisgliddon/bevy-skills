@@ -4,7 +4,7 @@
 
 ## Cost model
 
-Animation cost in Bevy 0.18 has three layers:
+Animation cost in Bevy 0.20 has three layers:
 
 | Layer | Driver | Scales with |
 |---|---|---|

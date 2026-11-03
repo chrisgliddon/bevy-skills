@@ -7,6 +7,7 @@ metadata:
   tier: "1"
   area: migration
   bevy_version: "0.18"
+  target_version: "Bevy 0.18"
 ---
 
 # Bevy 0.17 → 0.18 — Migration cheat sheet

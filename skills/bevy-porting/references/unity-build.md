@@ -26,7 +26,7 @@ Unity's **Build Settings** (platform list, scenes, scripting backend) and **Play
 | WebGL | `wasm32-unknown-unknown` | See `bevy-wasm-webgpu` |
 | Android | `aarch64-linux-android` | `cargo-mobile2` or `xbuild` |
 | iOS | `aarch64-apple-ios` | `cargo-mobile2` |
-| PS5 / Xbox / Switch | — | Not officially supported in Bevy 0.18 |
+| PS5 / Xbox / Switch | — | Not officially supported in Bevy 0.20 |
 
 For a universal macOS binary: `cargo build --target x86_64-apple-darwin && cargo build --target aarch64-apple-darwin` then `lipo -create` the two outputs.
 
@@ -37,10 +37,11 @@ Feature selection is the biggest single lever on binary and bundle size. See `be
 ```toml
 # Trimmed release build — start here, add back what you need.
 [dependencies]
-bevy = { version = "0.18", default-features = false, features = [
+bevy = { version = "0.20", default-features = false, features = [
     "3d_api",          # component types, no default renderer
     "bevy_winit",      # window + event loop
     "mouse", "keyboard",
+    # "ui", "audio",  # not implied by 3d/2d since 0.19 — add back if you use them
 ] }
 
 [profile.release]
@@ -130,7 +131,7 @@ Unity AssetBundles have no direct Bevy equivalent. Two patterns:
 - **`cargo-bundle` does not handle iOS signing or notarization.** Use `cargo-mobile2` for iOS end-to-end.
 - **Universal macOS binaries need `lipo`.** `cargo` doesn't produce fat binaries natively; you must build each arch separately and merge.
 - **`wasm-opt` is not a Cargo plugin** — install `binaryen` from your system package manager or <https://github.com/WebAssembly/binaryen/releases>.
-- **Console support (PS5/Xbox/Switch) is absent from Bevy 0.18.** No official renderer backend exists. Community forks exist but are not covered here.
+- **Console support (PS5/Xbox/Switch) is absent from Bevy 0.20.** No official renderer backend exists. Community forks exist but are not covered here.
 
 ## See also
 
@@ -138,4 +139,4 @@ Unity AssetBundles have no direct Bevy equivalent. Two patterns:
 - [`unity-assets.md`](unity-assets.md) — `AssetServer`, `AssetLoader`, and the Bevy asset pipeline that underpins asset bundling decisions.
 - `bevy-cargo-features` — full feature collection table, `default-features = false` patterns, and per-platform feature flags.
 - `bevy-wasm-webgpu` — WASM target: `wasm-bindgen`, backend selection, `wasm-opt`, asset path rules.
-- `bevy-migration-0-17-to-0-18` — feature renames that affect `Cargo.toml` when upgrading an existing project.
+- `bevy-migration-0-19-to-0-20` — feature renames (`compressed_image_saver*`, `ui`/`audio` opt-in) that affect `Cargo.toml` when upgrading an existing project.
