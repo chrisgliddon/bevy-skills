@@ -52,6 +52,15 @@ fn setup(mut commands: Commands) {
 | Recording a camera to MP4 or PNG sequences (`bevy_capture`) | `bevy-capture` |
 | Voxel meshing with `block-mesh-rs`, chunk pipeline, greedy quads | `bevy-voxel-pipeline` |
 | RON block definitions, palette, KTX2 atlas baking | `bevy-voxel-data` |
+| Rebindable actions, entity `Gamepad`s, hot-plug, deadzones, Steam Deck, input into `FixedUpdate` | `bevy-input-actions` |
+| `AudioPlayer`, `PlaybackSettings`, `AudioSink`, spatial listeners, mix groups, browser unlock | `bevy-audio` |
+| Rapier bodies, colliders, fixed-step ordering, events, scene queries, joints, determinism | `bevy-physics` |
+| Built-in vs external/headless rendering, forward vs deferred, render systems | `bevy-rendering` |
+| `DiagnosticPath`, `DiagnosticsStore`, `info_span!`, `RenderDiagnosticsPlugin`, CPU/GPU timings | `bevy-diagnostics-profiling` |
+| Stable IDs, versioned save DTOs, atomic native/browser writes, snapshots | `bevy-save-load` |
+| Deterministic `App::update` stepping, `TimeUpdateStrategy`, `MessageCursor`, headless tests | `bevy-testing` |
+| Screen readers, adaptive controllers, remapping, captions, contrast, motion safety | `bevy-a11y` |
+| Voxel edit → remesh runtime: dirty/halo fan-out, revision tokens, bounded uploads | `bevy-voxel-runtime` |
 | `es-fluent-manager-bevy` i18n — `FluentText<T>`, `BevyFluentText`, `LocaleChangeEvent`, `i18n.toml` | `bevy-fluent` |
 | `Node`, `ui_widgets::Button` + `Hovered`/`Pressed`, `children![]`, `TextFont`/`FontSize`, `Val::Em`, `Node::border_radius`, `InputFocus` | `bevy-ui` |
 | Porting from Unity, Unreal, Godot, Phaser, Flash, Defold, Roblox, GameMaker | `bevy-porting` |

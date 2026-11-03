@@ -1,0 +1,18 @@
+{
+  "pairs": [
+    {
+      "id": "body-text",
+      "foreground": "#FFFFFF",
+      "background": "#111111",
+      "kind": "text",
+      "large_text": false,
+      "target": "AAA"
+    },
+    {
+      "id": "focus-ring",
+      "foreground": "#FFE066",
+      "background": "#153A5B",
+      "kind": "non_text"
+    }
+  ]
+}

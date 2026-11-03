@@ -4,25 +4,27 @@ Cross-links: [ecs-renames](ecs-renames.md) | [render-renames](render-renames.md)
 
 ## `SimpleExecutor` removed
 
-`SimpleExecutor` was the schedule executor that silently ignored system-ordering ambiguities. It was removed in 0.18. Schedules now panic on undeclared ambiguities.
+`SimpleExecutor` applied deferred commands after every system. It was removed in 0.18;
+use `SingleThreadedExecutor` or `MultiThreadedExecutor`. The replacement executors use
+dependency edges to determine where deferred commands must be applied.
 
-**Fix — use ordering annotations to resolve ambiguities:**
+**Fix — add ordering wherever downstream behavior depends on earlier commands:**
 
 ```rust
-// Before (silent with SimpleExecutor)
+// Before (SimpleExecutor applied commands after each system)
 app.edit_schedule(MySchedule, |s| {
     s.set_executor_kind(ExecutorKind::Simple); // no longer exists
 });
 
-// After — declare ordering or mark explicit ambiguity
+// After — declare the dependency so ApplyDeferred can be placed correctly
 app.add_systems(MySchedule, (system_a, system_b).chain());
 // or:
 app.add_systems(MySchedule, system_a.before(system_b));
-// or, if the ambiguity is intentional:
-app.add_systems(MySchedule, system_a.ambiguous_with(system_b));
 ```
 
-`ExecutorKind::Simple` is also removed. The remaining executor kinds are `SingleThreaded` and `MultiThreaded`.
+`ExecutorKind::Simple` is also removed. In Bevy 0.18 the remaining executor kinds were
+`SingleThreaded` and `MultiThreaded`. Ambiguity diagnostics are configured separately;
+they do not become errors merely because `SimpleExecutor` is gone.
 
 ## `ScheduleBuildError` variant renames
 

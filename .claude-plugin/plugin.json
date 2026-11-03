@@ -1,6 +1,9 @@
 {
   "name": "bevy-skills",
   "version": "0.20.0",
-  "description": "AI agent skills for Bevy 0.20. Teaches agents correct Bevy ECS, rendering, asset, and networking usage.",
+  "description": "AI agent skills for Bevy 0.20: ECS, rendering, physics, input, assets, audio, accessibility, persistence, testing, profiling, voxels, and migration.",
+  "author": {
+    "name": "Chris Gliddon"
+  },
   "skills": "./skills"
 }

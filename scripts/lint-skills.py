@@ -6,7 +6,8 @@ Rules enforced (see CLAUDE.md "Hard rules"):
   - Allowed keys: name, description, license, compatibility, metadata.
   - `name` matches ^[a-z0-9]+(-[a-z0-9]+)*$ (OpenCode regex), 1-64 chars,
     and equals the parent directory's name.
-  - `description` is 1-1024 chars and contains the literal "Bevy 0.20".
+  - `description` is 1-1024 chars and contains its pinned target version
+    ("Bevy 0.20" by default; metadata.target_version may override historical skills).
   - `metadata` (if present) is a mapping of simple key: value lines.
 
 Usage:

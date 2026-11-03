@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "required_devices": ["keyboard", "gamepad"],
+  "settings": {
+    "hotplug": true,
+    "simultaneous_devices": true,
+    "multiple_devices_per_player": true,
+    "prompt_updates": true,
+    "capture_unknown_controls": true,
+    "adjustable_deadzone": true,
+    "adjustable_sensitivity": true,
+    "invert_axes": true
+  },
+  "actions": [
+    {
+      "id": "move",
+      "contexts": ["gameplay"],
+      "essential": true,
+      "remappable": true,
+      "input_kind": "analog_2d",
+      "digital_alternative": true,
+      "bindings": [
+        {"device": "keyboard", "control": "WASD"},
+        {"device": "gamepad", "control": "LeftStick"}
+      ]
+    },
+    {
+      "id": "interact",
+      "contexts": ["gameplay"],
+      "essential": true,
+      "remappable": true,
+      "demands": ["hold"],
+      "alternatives": ["toggle"],
+      "bindings": [
+        {"device": "keyboard", "control": "KeyE"},
+        {"device": "gamepad", "control": "South"}
+      ]
+    }
+  ]
+}

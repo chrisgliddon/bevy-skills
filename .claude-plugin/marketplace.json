@@ -1,5 +1,17 @@
 {
   "name": "bevy-skills",
-  "owner": "chrisgliddon",
-  "homepage": "https://github.com/chrisgliddon/bevy-skills"
+  "owner": {
+    "name": "chrisgliddon"
+  },
+  "metadata": {
+    "description": "AI agent skills for Bevy 0.20, including physics, input, audio, accessibility, persistence, testing, profiling, voxel runtimes, and Rust maintainability guidance."
+  },
+  "plugins": [
+    {
+      "name": "bevy-skills",
+      "source": "./",
+      "description": "AI agent skills for Bevy 0.20. Teaches correct ECS, rendering, physics, input, assets, accessibility, persistence, testing, profiling, and platform usage.",
+      "homepage": "https://github.com/chrisgliddon/bevy-skills"
+    }
+  ]
 }

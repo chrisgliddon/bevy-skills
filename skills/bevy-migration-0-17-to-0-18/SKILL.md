@@ -1,6 +1,6 @@
 ---
 name: bevy-migration-0-17-to-0-18
-description: Use when upgrading from Bevy 0.17 to Bevy 0.18, when an LLM writes `EventReader`/`EventWriter`/`Trigger<E>` instead of `MessageReader`/`MessageWriter`/`On<E>`, when `mesh.insert_attribute` fails to compile, when `AmbientLight` no longer works as a resource, or when `Camera { target: ... }` errors on the `target` field. Index of every breaking 0.17→0.18 change.
+description: "Use when upgrading from Bevy 0.17 to Bevy 0.18, when an LLM writes `EventReader`/`EventWriter`/`Trigger<E>` instead of `MessageReader`/`MessageWriter`/`On<E>`, when `mesh.insert_attribute` fails to compile, when `AmbientLight` no longer works as a resource, or when `Camera { target: ... }` errors on the `target` field. Index of every breaking 0.17→0.18 change."
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:
@@ -114,9 +114,11 @@ GltfPlugin {
 
 ## Schedule executor
 
-**`SimpleExecutor` was removed.** Schedules now panic on undeclared ambiguities.
-Add `.before()`, `.after()`, `.chain()`, `.in_set(...)`, or `.ambiguous_with(...)`.
-See [references/schedule-renames.md](references/schedule-renames.md) for `ScheduleBuildError` variant renames.
+**`SimpleExecutor` was removed.** Add `.before()`, `.after()`, or `.chain()` when a
+later system must observe commands from an earlier one in the same schedule. The
+remaining executors use those dependencies to place `ApplyDeferred`; ambiguity
+detection remains separately configurable. See
+[references/schedule-renames.md](references/schedule-renames.md).
 
 ## Topics
 

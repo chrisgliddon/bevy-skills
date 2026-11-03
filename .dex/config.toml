@@ -1,0 +1,13 @@
+[storage]
+engine = "file"
+
+[storage.file]
+mode = "in-repo"
+
+[sync.github]
+enabled = true
+token_env = "GITHUB_TOKEN"
+label_prefix = "dex"
+
+[sync.github.auto]
+on_change = true

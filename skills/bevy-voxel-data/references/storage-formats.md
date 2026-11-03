@@ -77,7 +77,13 @@ impl ChunkFlat {
 **Properties:**
 - O(1) random access, O(1) modification.
 - Dense memory: 32³ × 2 bytes = 65 536 bytes = 64 KB per chunk.
-- No compression. At 36-chunk render distance this is ~15 GB RAM for u16 (2-byte) types, or ~7 GB for u8 (1-byte) types.
+- No compression. State the loaded volume before quoting memory. For example, a
+  horizontal Chebyshev radius of 36 is a 73×73 footprint. With 48 vertical
+  32-block chunks, that is 73×73×48 = 255,792 chunks: about 15.61 GiB for dense
+  `u16` chunks or 7.81 GiB for dense `u8` chunks, before allocator and metadata
+  overhead. With only 8 vertical chunks, the same radius is about 2.60 GiB or
+  1.30 GiB. Use `chunk_count × chunk_edge³ × bytes_per_voxel` for the actual
+  world shape rather than saying only “36-chunk render distance.”
 - Disk format requires a separate serialization step.
 
 **When it's right:** small worlds, high per-block modification rate, ample RAM,
@@ -103,8 +109,11 @@ struct ChunkColumn {
 
 ### Upsides
 
-- **Massive RAM savings.** At 36-chunk render distance: ~400 MB (RLE) vs ~7 GB
-  (flat u8) or ~15 GB (flat u16). This is the primary argument for runtime RLE.
+- **Potentially massive RAM savings.** For the explicit 255,792-chunk example
+  above, a measured workload might compress to hundreds of MiB instead of the
+  dense 7.81/15.61 GiB baselines. RLE size depends on run count and allocator
+  overhead, so measure the actual terrain and edit distribution rather than
+  treating a single compressed estimate as universal.
 - **Disk save = memory dump.** The runtime format is already the compressed
   format. No serialization pause.
 - **Fast surface detection.** Traversal naturally yields every voxel-type
@@ -169,7 +178,7 @@ space waste, simpler unpacking).
 ```rust
 // Sketch: palette-compressed subchunk.
 struct PaletteChunk {
-    palette: Vec<u16>,          // block IDs present in this chunk
+    palette: Vec<u16>,          // dense runtime BlockIds present in this chunk
     bits: u8,                   // bits per index (1, 2, 4, or 8)
     data: Vec<u64>,             // packed index array
 }
@@ -191,6 +200,11 @@ impl PaletteChunk {
     }
 }
 ```
+
+For persistence, serialize the chunk palette as immutable stable block IDs (or
+store a save-level stable-ID palette) and remap it to runtime `u16` values while
+loading. Never assume these dense values survive catalog reorder, mod changes,
+or a different build.
 
 **Properties:**
 - O(1) random access (bit unpack, one palette lookup).
