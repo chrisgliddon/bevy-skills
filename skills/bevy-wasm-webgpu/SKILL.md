@@ -1,6 +1,6 @@
 ---
 name: bevy-wasm-webgpu
-description: Use when targeting Bevy 0.20 at `wasm32-unknown-unknown`, choosing the `webgl2` or `webgpu` feature, setting `WgpuSettings { backends, priority: WgpuSettingsPriority::WebGPU }`, attaching to a canvas with `Window { canvas, fit_canvas_to_parent }`, generating glue with `wasm-bindgen`, or debugging asset HTTP 404s and `Task` cancellation in the browser.
+description: "Use when targeting Bevy 0.20 at `wasm32-unknown-unknown`, choosing the `webgl2` or `webgpu` feature, setting `WgpuSettings { backends, priority: WgpuSettingsPriority::WebGPU }`, attaching to a canvas with `Window { canvas, fit_canvas_to_parent }`, generating glue with `wasm-bindgen`, or debugging asset HTTP 404s and `Task` cancellation in the browser."
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:

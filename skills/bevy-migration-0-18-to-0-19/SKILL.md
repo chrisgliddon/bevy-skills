@@ -1,6 +1,6 @@
 ---
 name: bevy-migration-0-18-to-0-19
-description: Use when upgrading from Bevy 0.18 to Bevy 0.19, when `TextLayout::new_with_justify` or `TextFont { font_size: 24.0, font: handle }` stops compiling (now `TextLayout::justify`, `FontSize::Px`, `FontSource`), when `bevy_scene`/`DynamicScene` serialization moved to `bevy_world_serialization` (`WorldAsset`/`DynamicWorld`), when a `#[derive(Resource)]` type now also matches `&T` component queries, or when `init_non_send_resource`/`FeathersPlugin`/`EasyScreenRecordPlugin` changed. Index of every breaking Bevy 0.19 change.
+description: "Use when upgrading from Bevy 0.18 to Bevy 0.19, when `TextLayout::new_with_justify` or `TextFont { font_size: 24.0, font: handle }` stops compiling (now `TextLayout::justify`, `FontSize::Px`, `FontSource`), when `bevy_scene`/`DynamicScene` serialization moved to `bevy_world_serialization` (`WorldAsset`/`DynamicWorld`), when a `#[derive(Resource)]` type now also matches `&T` component queries, or when `init_non_send_resource`/`FeathersPlugin`/`EasyScreenRecordPlugin` changed. Index of every breaking Bevy 0.19 change."
 license: MIT
 compatibility: opencode,claude-code,cursor
 metadata:
